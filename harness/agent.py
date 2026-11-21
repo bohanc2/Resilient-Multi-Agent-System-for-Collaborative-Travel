@@ -96,9 +96,14 @@ class TravelAgent:
             m = self.worker.chat(rec, msgs, node=role, tools=TOOL_SCHEMAS)
             am = {"role": "assistant", "content": m.content or ""}
             if m.tool_calls:
-                am["tool_calls"] = [{"id": c.id, "type": "function",
-                                     "function": {"name": c.function.name, "arguments": c.function.arguments}}
-                                    for c in m.tool_calls]
+                am["tool_calls"] = []
+                for c in m.tool_calls:
+                    tc = {"id": c.id, "type": "function",
+                          "function": {"name": c.function.name, "arguments": c.function.arguments}}
+                    extra = (c.model_extra or {}).get("extra_content")
+                    if extra:  # Gemini 3 thought_signature must be echoed back, else HTTP 400
+                        tc["extra_content"] = extra
+                    am["tool_calls"].append(tc)
             msgs.append(am)
             if not m.tool_calls:
                 plan = _parse_json(m.content or "")

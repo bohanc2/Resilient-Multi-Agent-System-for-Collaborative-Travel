@@ -86,7 +86,7 @@ def summarize(rows, tasks, systems, runs):
 
     L.append("| Task accuracy | " + col(acc) + " |")
     for k in range(1, runs + 1):
-        L.append(f"| Accuracy run {k} | " + col(lambda rs: f"{statistics.mean(r['correct'] for r in rs if r['run'] == k):.1%}") + " |")
+        L.append(f"| Accuracy run {k} | " + col(lambda rs: (lambda xs: f"{statistics.mean(xs):.1%} (n={len(xs)})" if xs else "–")([r['correct'] for r in rs if r['run'] == k])) + " |")
     L.append("| Avg turns (LLM calls) | " + col(lambda rs: f"{statistics.mean(r['turns'] for r in rs):.2f}") + " |")
     L.append("| Avg tool calls | " + col(lambda rs: f"{statistics.mean(r['tool_calls'] for r in rs):.2f}") + " |")
     L.append("| Avg latency (s) | " + col(lambda rs: f"{statistics.mean(r['seconds'] for r in rs):.1f}") + " |")
@@ -144,10 +144,34 @@ def main():
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--ids", default=None)
     ap.add_argument("--tag", default=None, help="output folder name under results/ and traces/")
+    ap.add_argument("--summarize", default=None, metavar="TAG", help="only rebuild the table from results/TAG/rows.jsonl")
+    ap.add_argument("--regrade", action="store_true", help="with --summarize: re-grade saved plans from traces")
     ap.add_argument("--fake", action="store_true", help="scripted offline LLM, for testing the harness only")
     args = ap.parse_args()
 
     tasks = load_jsonl(args.tasks)
+    if args.summarize:  # rebuild the table from a (possibly partial) rows.jsonl
+        d = pathlib.Path("results") / args.summarize
+        rows = load_jsonl(d / "rows.jsonl") if (d / "rows.jsonl").exists() else json.loads((d / "results.json").read_text())
+        done = {r["id"] for r in rows}
+        tasks = [t for t in tasks if t["id"] in done]
+        runs = max(r["run"] for r in rows)
+        names = list(dict.fromkeys(r["system"] for r in sorted(rows, key=lambda r: r["system"])))
+        if args.regrade:  # re-grade the saved final plans with the current checker (no LLM calls)
+            by_id = {t["id"]: t for t in tasks}
+            for r in rows:
+                tr = json.loads((pathlib.Path("traces") / args.summarize / f"{r['system']}_r{r['run']}_{r['id']}.json").read_text())
+                g = grade(tr["final_plan"], by_id[r["id"]])
+                r.update(correct=g["passed"], unsafe=g["unsafe"], violations=g["violations"][:8])
+            (d / "results.json").write_text(json.dumps(sorted(rows, key=lambda r: (r["system"], r["run"], r["id"])),
+                                                       ensure_ascii=False, indent=1))
+        table, _ = summarize(rows, tasks, names, runs)
+        if args.regrade:
+            md = (d / "results.md").read_text()
+            head = md.split("Grading:")[0]
+            (d / "results.md").write_text(head + table + "\n")
+        print(table)
+        return
     if args.ids:
         keep = set(args.ids.split(","))
         tasks = [t for t in tasks if t["id"] in keep]
@@ -174,6 +198,8 @@ def main():
                      "correct": False, "turns": 0, "seconds": 0, "tokens": 0, "tool_calls": 0, "replans": 0,
                      "unsafe": False, "violations": [], "error": repr(e)}
             rows.append(r)
+            with open(res_dir / "rows.jsonl", "a") as fh:  # incremental, survives an interrupted run
+                fh.write(json.dumps(r, ensure_ascii=False) + "\n")
             print(f"[{i}/{len(jobs)}] {n:8s} run{k} {tid}: {'PASS' if r['correct'] else 'fail'} "
                   f"turns={r['turns']} {r['seconds']}s tok={r['tokens']}"
                   + (f" ERR {r['error'][:80]}" if r.get("error") else ""), flush=True)

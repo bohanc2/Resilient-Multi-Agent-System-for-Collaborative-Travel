@@ -127,8 +127,10 @@ Example line (shortened):
 python -m venv .venv && .venv/bin/pip install -r requirements.txt
 echo 'OPENAI_API_KEY=sk-...' > .env              # never commit .env
 .venv/bin/python eval.py --runs 1 --limit 5      # smoke test
-.venv/bin/python eval.py --model gpt-4.1-mini --supervisor-model gpt-4.1 --baseline-model gpt-4.1
-                                                 # full: 50 tasks × 3 runs × {agent, baseline}
+.venv/bin/python eval.py --model gpt-4.1-mini --tag final-gpt41mini
+                                                 # full: 50 tasks × 3 runs × {agent, baseline} (reported run)
+.venv/bin/python eval.py --summarize final-gpt41mini --regrade   # rebuild table from saved plans, no LLM calls
+.venv/bin/python eval.py --provider gemini --model gemini-3.5-flash-lite --rpm 12   # free tier (too small for a full run)
 .venv/bin/python eval.py --ids SEA03,TPE10       # rerun specific tasks
 .venv/bin/python eval.py --fake --runs 1         # offline plumbing test (scripted LLM, numbers meaningless)
 .venv/bin/python make_tasks.py                   # regenerate + verify tasks.jsonl
@@ -145,7 +147,8 @@ Metrics reported side by side for the agent and the baseline:
 - pass@3, pass^3, and the list of tasks that flip
 
 ## 6. Results and failure analysis
-See `results/<tag>/results.md` and `RESULTS.md`.
+**See [`RESULTS.md`](RESULTS.md)**: the side-by-side table, pass@3 / pass^3, flipped tasks and one traced failure.
+Headline (gpt-4.1-mini, 50 tasks × 3 runs): agent 38.7% ± 4.0% vs baseline 10.7% ± 2.5%. The agent costs about 22 LLM calls, 26 s and 58k tokens per task; the baseline costs 1 call, 2 s and 7k tokens.
 
 ## Credits
 - The project overview, the architecture-diagram style, and four scenario ideas come from the teammate's first harness draft (branch `feat/eval-harness`):

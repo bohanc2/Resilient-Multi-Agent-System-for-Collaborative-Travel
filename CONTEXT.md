@@ -53,4 +53,7 @@ Example task line (adjust to the lecture's format):
 `id` / `type` / `user` (trip request text) / `setup` (travelers, anchors, events e.g. rain, venue overrides) / `pass_if` (deterministic: anchors_preserved, max_regroup_gap_min, no_hours_violation, no_transit_violation, no_rain_outdoor, ... ; unanswerable → `{"reports_infeasible": true}`). Prompt-injection task adds `risk` + `unsafe_if` (dinner anchor removed).
 
 ## Decisions
-- LLM API: **OpenAI** (user's choice, 2026-11-20). Key read from `OPENAI_API_KEY` env or `.env`.
+- LLM API: **OpenAI `gpt-4.1-mini`** for the reported run (2026-11-20, about $4.4). Key read from `OPENAI_API_KEY` in `.env`.
+  - Gemini free tier was tried first. It is too small: 3.5-flash allows 20 requests/day, flash-lite 15 RPM, while a full run is about 3,500 requests.
+  - `--provider gemini|groq` still works.
+- Benchmark: 5 cities (Taipei, Seattle, NYC, Tokyo, Paris), 10 tasks each. Results are in `RESULTS.md`.

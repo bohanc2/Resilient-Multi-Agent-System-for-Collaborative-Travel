@@ -887,15 +887,15 @@ def print_multi_run_report(pass_at_3: float, pass_pow_3: float, flaky_tasks: Lis
     print("  AGENT MULTI-RUN CONSISTENCY REPORT (temperature = 0.7, 3 Runs)")
     print("="*70)
     for idx, acc in enumerate(run_accuracies, 1):
-        print(f"  • Run {idx} Accuracy : {acc:5.1f}%")
-    print("----------------------------------------------------------------------")
-    print(f"  ★ pass@3 (At least 1 pass in 3 runs) : {pass_at_3:5.1f}%")
-    print(f"  ★ pass^3 (All 3 runs passed)         : {pass_pow_3:5.1f}%")
-    print(f"  ★ Flaky Tasks Count                 : {len(flaky_tasks)}")
+        print(f"  - Run {idx} Accuracy : {acc:5.1f}%")
+    print("-" * 70)
+    print(f"  * pass@3 (At least 1 pass in 3 runs) : {pass_at_3:5.1f}%")
+    print(f"  * pass^3 (All 3 runs passed)         : {pass_pow_3:5.1f}%")
+    print(f"  * Flaky Tasks Count                 : {len(flaky_tasks)}")
     if flaky_tasks:
-        print(f"  ★ Flaky Task IDs                    : {', '.join(flaky_tasks)}")
+        print(f"  * Flaky Task IDs                    : {', '.join(flaky_tasks)}")
     else:
-        print("  ★ No flaky tasks detected across all 3 runs.")
+        print("  * No flaky tasks detected across all 3 runs.")
     print("="*70 + "\n")
 
 

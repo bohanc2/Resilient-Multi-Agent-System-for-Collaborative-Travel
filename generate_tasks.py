@@ -1,15 +1,39 @@
 """
-Script to generate tasks.jsonl with 50 benchmark tasks:
-- 44 normal tasks (diverse cities, 2-5 travelers, budgets, stamina, split-and-regroup, hard anchors)
-- 4 edge cases (sudden downpour, venue closure, tight regroup synchronization, rain + tight budget)
-- 2 unanswerable tasks (physical transit impossibility, budget impossibility)
+generate_tasks.py - Generates 50 standardized benchmark tasks for Collaborative Travel.
+
+Benchmark Distribution:
+- 44 normal tasks (diverse cities, 2-5 travelers, budgets, stamina, split-and-regroup, hard anchors).
+- 4 edge cases (sudden rain contingency, venue closure, tight regroup synchronization, rain + budget).
+- 2 unanswerable tasks (spatio-temporal transit impossibility, financial impossibility).
+
+Format Guarantee:
+Every JSON line strictly contains uniform keys in fixed order:
+{
+  "task_id": str,
+  "category": "normal" | "edge_case" | "unanswerable",
+  "city": str,
+  "num_travelers": int,
+  "travelers": list[dict],
+  "prompt": str,
+  "constraints": {
+    "is_answerable": bool,
+    "city": str,
+    "hard_anchor": dict,
+    "weather_rain_after": str | None,
+    "max_regroup_gap_mins": int,
+    "max_budget_per_person": int | None,
+    "required_regroup_venue": str | None,
+    "required_regroup_time": str | None,
+    "rejection_reason": str | None
+  }
+}
 """
+
 import json
 from pathlib import Path
 
 tasks = []
 
-# --- 44 Normal Tasks ---
 cities_data = [
     {
         "city": "Taipei",
@@ -73,14 +97,15 @@ traveler_templates = [
     ]
 ]
 
-# Generate 44 normal tasks
+# 1. 44 Normal Tasks
 for i in range(1, 45):
     city_info = cities_data[(i - 1) % len(cities_data)]
     travelers_group = traveler_templates[(i - 1) % len(traveler_templates)]
     num_travelers = len(travelers_group)
     traveler_names = ", ".join([t["name"] for t in travelers_group])
     interests_summary = "; ".join([f"{t['name']} prefers {', '.join(t['interests'])} (budget ${t['budget']}, stamina {t['stamina']})" for t in travelers_group])
-    
+    min_budget = min(t["budget"] for t in travelers_group)
+
     prompt = (
         f"Plan a 1-day collaborative travel itinerary in {city_info['city']} for a group of {num_travelers} travelers ({traveler_names}).\n"
         f"Individual traveler limits and preferences: {interests_summary}.\n"
@@ -91,9 +116,7 @@ for i in range(1, 45):
         f"Arrival time difference across all sub-groups must be within 15 minutes. "
         f"Ensure all venue operating hours and transit travel times are strictly respected."
     )
-    
-    min_budget = min(t["budget"] for t in travelers_group)
-    
+
     task = {
         "task_id": f"task_{i:02d}",
         "category": "normal",
@@ -109,13 +132,14 @@ for i in range(1, 45):
             "max_regroup_gap_mins": 15,
             "max_budget_per_person": min_budget,
             "required_regroup_venue": city_info["hard_anchor"]["venue"],
-            "required_regroup_time": city_info["regroup_time"]
+            "required_regroup_time": city_info["regroup_time"],
+            "rejection_reason": None
         }
     }
     tasks.append(task)
 
-# --- 4 Edge Cases ---
-# Edge 1: Sudden afternoon downpour in Taipei (Rain after 14:00, 85% probability)
+# 2. 4 Edge Cases
+# Edge 1: Sudden afternoon downpour in Taipei
 edge_1 = {
     "task_id": "task_45_edge_rain_taipei",
     "category": "edge_case",
@@ -143,12 +167,13 @@ edge_1 = {
         "max_regroup_gap_mins": 15,
         "max_budget_per_person": 70,
         "required_regroup_venue": "Taipei 101 Dining",
-        "required_regroup_time": "18:15"
+        "required_regroup_time": "18:15",
+        "rejection_reason": None
     }
 }
 tasks.append(edge_1)
 
-# Edge 2: Venue sudden closure in Tokyo (Mori Art Museum closed today)
+# Edge 2: Venue closure in Tokyo
 edge_2 = {
     "task_id": "task_46_edge_closed_tokyo",
     "category": "edge_case",
@@ -174,7 +199,8 @@ edge_2 = {
         "max_regroup_gap_mins": 15,
         "max_budget_per_person": 80,
         "required_regroup_venue": "Roppongi Hills Sky Deck",
-        "required_regroup_time": "18:15"
+        "required_regroup_time": "18:15",
+        "rejection_reason": None
     }
 }
 tasks.append(edge_2)
@@ -208,12 +234,13 @@ edge_3 = {
         "max_regroup_gap_mins": 15,
         "max_budget_per_person": 60,
         "required_regroup_venue": "Space Needle Observation Deck",
-        "required_regroup_time": "17:45"
+        "required_regroup_time": "17:45",
+        "rejection_reason": None
     }
 }
 tasks.append(edge_3)
 
-# Edge 4: Rain forecast + tight budget replacement in Kyoto
+# Edge 4: Rain forecast + tight budget in Kyoto
 edge_4 = {
     "task_id": "task_48_edge_rain_budget_kyoto",
     "category": "edge_case",
@@ -241,13 +268,14 @@ edge_4 = {
         "max_regroup_gap_mins": 15,
         "max_budget_per_person": 25,
         "required_regroup_venue": "Gion Kaiseki Dinner",
-        "required_regroup_time": "17:45"
+        "required_regroup_time": "17:45",
+        "rejection_reason": None
     }
 }
 tasks.append(edge_4)
 
-# --- 2 Unanswerable Cases ---
-# Unanswerable 1: Physical transit impossibility (Taipei 101 at 17:00 to Kaohsiung dinner at 17:15)
+# 3. 2 Unanswerable Cases
+# Unanswerable 1: Physical transit impossibility
 unans_1 = {
     "task_id": "task_49_unanswerable_physics",
     "category": "unanswerable",
@@ -271,12 +299,15 @@ unans_1 = {
         "hard_anchor": {"venue": "Kaohsiung Harbor Dinner", "start_time": "17:15", "end_time": "19:00"},
         "weather_rain_after": None,
         "max_regroup_gap_mins": 15,
+        "max_budget_per_person": None,
+        "required_regroup_venue": "Kaohsiung Harbor Dinner",
+        "required_regroup_time": "17:15",
         "rejection_reason": "Physical transit impossibility: Taipei to Kaohsiung takes >= 110 minutes, impossible to travel within 15 minutes."
     }
 }
 tasks.append(unans_1)
 
-# Unanswerable 2: Budget impossibility ($0 budget demanding 3-star Michelin dinner)
+# Unanswerable 2: Budget impossibility
 unans_2 = {
     "task_id": "task_50_unanswerable_budget",
     "category": "unanswerable",
@@ -299,6 +330,9 @@ unans_2 = {
         "hard_anchor": {"venue": "Sushi Yoshitake", "start_time": "18:00", "end_time": "20:00"},
         "weather_rain_after": None,
         "max_regroup_gap_mins": 15,
+        "max_budget_per_person": 0,
+        "required_regroup_venue": "Sushi Yoshitake",
+        "required_regroup_time": "18:00",
         "rejection_reason": "Financial impossibility: Sushi Yoshitake requires $350/person but traveler budget is $0."
     }
 }

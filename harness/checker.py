@@ -120,7 +120,7 @@ def check_plan(plan, setup: dict, checks: list[str] | None = None) -> list[str]:
         if "budget" in checks and "budget" in t:
             spent = sum(venues[it["vid"]]["cost"] for it in mine)
             if spent > t["budget"]:
-                v.append(f"budget: {t['name']} spends {spent} TWD > budget {t['budget']}")
+                v.append(f"budget: {t['name']} spends {spent} > budget {t['budget']}")
         free = [it for it in mine if not is_anchor(it)]
         if "interests" in checks and req.get("interest_coverage") and t.get("interests"):
             if not any(set(venues[it["vid"]]["tags"]) & set(t["interests"]) for it in free):

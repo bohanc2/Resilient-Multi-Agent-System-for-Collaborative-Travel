@@ -6,7 +6,7 @@ import json
 from .checker import check_plan
 from .data import RAIN_THRESHOLD, rain_by_hour, travel_minutes, venue_summary, venues_for
 
-RULES = f"""You plan one-day group itineraries in Taipei. Output plans as JSON:
+RULES = f"""You plan one-day group itineraries in the city named in the request. Output plans as JSON:
 {{"feasible": true|false, "reason": "<one sentence>",
   "itinerary": [{{"venue_id": "<id>", "start": "HH:MM", "end": "HH:MM", "members": ["<name>", ...]}}, ...]}}
 Hard rules (a deterministic checker enforces all of them):
@@ -15,7 +15,7 @@ Hard rules (a deterministic checker enforces all of them):
 3. For each person, the next item may start only after the previous one ends plus the travel time between them.
    The first item must be reachable from the start location after day_start; nothing may end after day_end.
 4. Outdoor venues (indoor=false) are not allowed during any hour whose rain probability is above {RAIN_THRESHOLD:.0%}.
-5. A person's walk limit must be >= the venue's walk_level. A person's total cost (sum of cost_twd of their
+5. A person's walk limit must be >= the venue's walk_level. A person's total cost (sum of `cost` of their
    items, bookings included) must be <= their budget.
 6. Requirements in the request (min activities per person, interest match, everyone arriving at a shared booking
    within N minutes of each other, must-visit venues, keeping unaffected draft items) are hard rules too.
@@ -34,7 +34,7 @@ def public_setup(setup: dict) -> dict:
 
 TOOL_SCHEMAS = [
     {"type": "function", "function": {
-        "name": "list_venues", "description": "List Taipei venues with tags, indoor flag, hours, closed days, "
+        "name": "list_venues", "description": "List the trip city's venues with tags, indoor flag, hours, closed days, "
                                               "min visit minutes, cost and walk level. Optional filters.",
         "parameters": {"type": "object", "properties": {
             "tag": {"type": "string", "description": "e.g. hiking, museum, cafe, art, shopping, culture, scenic"},
@@ -66,7 +66,7 @@ class TripTools:
         for vid, v in self.venues.items():
             if "hotel" in v["tags"] or (tag and tag not in v["tags"]) or (indoor is not None and v["indoor"] != indoor):
                 continue
-            out.append({**venue_summary(vid, v), "description": v["description"]})
+            out.append({**venue_summary(vid, v), "currency": self.currency(), "description": v["description"]})
         return out
 
     def get_venue(self, venue_id):
@@ -80,6 +80,10 @@ class TripTools:
             if x not in self.venues:
                 return {"error": f"unknown venue_id '{x}'"}
         return {"minutes": travel_minutes(from_id, to_id, self.venues)}
+
+    def currency(self):
+        from .cities import CITY_INFO
+        return CITY_INFO[self.setup.get("city", "taipei")]["currency"]
 
     def weather(self):
         rain = rain_by_hour(self.setup)

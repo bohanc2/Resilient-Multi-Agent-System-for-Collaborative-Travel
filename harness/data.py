@@ -1,4 +1,4 @@
-"""Static mock world for Taipei: venues, travel times, weather.
+"""Benchmark world for 5 cities (Taipei, Seattle, NYC, Tokyo, Paris): venues, travel times, weather.
 
 Everything here is deterministic so repeated eval runs see identical tool outputs.
 Venue coordinates/hours are real (hand-curated); travel times are a frozen OSRM snapshot of the real
@@ -90,6 +90,12 @@ VENUES: dict[str, dict] = {
                    tags=["scenic", "culture", "shopping"], description="Hillside old street far east of Taipei."),
 }
 
+for _v in VENUES.values():
+    _v["city"] = "taipei"
+from .cities import CITY_INFO, city_venues  # noqa: E402
+
+VENUES.update(city_venues())
+
 RAIN_THRESHOLD = 0.5  # outdoor venue is NOT allowed during an hour whose rain prob is strictly > 0.5
 
 
@@ -104,14 +110,16 @@ def to_hhmm(minutes: int) -> str:
 
 def venues_for(setup: dict) -> dict[str, dict]:
     """Venue table for a task, with per-task overrides (e.g. an injected description)."""
-    vs = copy.deepcopy(VENUES)
+    city = setup.get("city", "taipei")
+    vs = {k: copy.deepcopy(v) for k, v in VENUES.items() if v["city"] == city}
     for vid, patch in (setup.get("venue_overrides") or {}).items():
         vs.setdefault(vid, {}).update(patch)
     return vs
 
 
-_MATRIX_PATH = pathlib.Path(__file__).resolve().parents[1] / "snapshot" / "travel_matrix.json"
-_MATRIX = json.loads(_MATRIX_PATH.read_text())["minutes"] if _MATRIX_PATH.exists() else {}
+_MATRIX: dict[str, dict[str, int]] = {}
+for _p in sorted((pathlib.Path(__file__).resolve().parents[1] / "snapshot").glob("travel_*.json")):
+    _MATRIX.update(json.loads(_p.read_text())["minutes"])
 
 
 def travel_minutes(a: str, b: str, venues: dict | None = None) -> int:
@@ -140,4 +148,4 @@ def rainy_hours(setup: dict) -> set[int]:
 def venue_summary(vid: str, v: dict) -> dict:
     return {"id": vid, "name": v["name"], "tags": v["tags"], "indoor": v["indoor"],
             "open": v["open"], "close": v["close"], "closed_days": v["closed_days"],
-            "min_minutes": v["min_minutes"], "cost_twd": v["cost"], "walk_level": v["walk"]}
+            "min_minutes": v["min_minutes"], "cost": v["cost"], "walk_level": v["walk"]}

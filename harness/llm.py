@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import threading
 import time
 
 
@@ -43,26 +44,63 @@ class Recorder:
         return self.input_tokens + self.output_tokens
 
 
+# OpenAI-compatible endpoints. Free tiers: Gemini (Google AI Studio key), Groq. Limits change; check the console.
+PROVIDERS = {
+    "openai": dict(base_url=None, key_env="OPENAI_API_KEY", openai_extras=True),
+    "gemini": dict(base_url="https://generativelanguage.googleapis.com/v1beta/openai/", key_env="GEMINI_API_KEY",
+                   openai_extras=False),
+    "groq": dict(base_url="https://api.groq.com/openai/v1", key_env="GROQ_API_KEY", openai_extras=False),
+}
+
+
+class RateLimiter:
+    """Process-wide requests-per-minute throttle shared by all threads (free tiers have low RPM)."""
+
+    def __init__(self, rpm: float | None):
+        self.interval = 60.0 / rpm if rpm else 0.0
+        self.next_t = 0.0
+        self.lock = threading.Lock()
+
+    def wait(self):
+        if not self.interval:
+            return
+        with self.lock:
+            now = time.time()
+            t = max(now, self.next_t)
+            self.next_t = t + self.interval
+        if t > now:
+            time.sleep(t - now)
+
+
 class LLM:
-    def __init__(self, model: str, temperature: float | None = 0.0, client=None):
+    def __init__(self, model: str, temperature: float | None = 0.0, client=None, provider: str = "openai",
+                 limiter: RateLimiter | None = None):
         self.model = model
         self.temperature = temperature
+        self.provider = PROVIDERS[provider]
+        self.limiter = limiter or RateLimiter(None)
         if client is None:
             from openai import OpenAI
             load_dotenv()
-            client = OpenAI(max_retries=6, timeout=120)
+            key = os.environ.get(self.provider["key_env"])
+            if not key:
+                raise SystemExit(f"Missing {self.provider['key_env']} (put it in .env)")
+            client = OpenAI(api_key=key, base_url=self.provider["base_url"], max_retries=8, timeout=180)
         self.client = client
 
     def chat(self, rec: Recorder, messages: list[dict], node: str, tools=None, json_mode=False):
         kw = dict(model=self.model, messages=messages)
         if self.temperature is not None and not self.model.startswith(("o1", "o3", "o4", "gpt-5")):
             kw["temperature"] = self.temperature
-            kw["seed"] = 0
+            if self.provider["openai_extras"]:
+                kw["seed"] = 0
         if tools:
             kw["tools"] = tools
-            kw["parallel_tool_calls"] = True
+            if self.provider["openai_extras"]:
+                kw["parallel_tool_calls"] = True
         if json_mode:
             kw["response_format"] = {"type": "json_object"}
+        self.limiter.wait()
         t = time.time()
         err = None
         try:

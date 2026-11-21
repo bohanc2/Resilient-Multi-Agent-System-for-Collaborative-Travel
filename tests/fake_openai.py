@@ -41,7 +41,7 @@ class _Completions:
         if messages[-1]["role"] == "user":
             return _resp(None, [NS(id=f"c{next(_ids)}", function=NS(name="weather", arguments="{}"))])
         return _resp(None, [NS(id=f"c{next(_ids)}", function=NS(name="propose_plan",
-                                                                 arguments=json.dumps({"plan": _plan(d)})))])
+                                                                 arguments=json.dumps(_plan(d))))])
 
 
 class FakeOpenAI:

@@ -43,9 +43,12 @@ def build_systems(args):
     if args.fake:
         from tests.fake_openai import FakeOpenAI
         client = FakeOpenAI()
-    sup = LLM(args.supervisor_model or args.model, client=client)
-    wrk = LLM(args.model, client=client)
-    base = LLM(args.baseline_model or args.model, client=client)
+    from harness.llm import RateLimiter
+    lim = RateLimiter(args.rpm)
+    kw = dict(client=client, provider=args.provider, limiter=lim)
+    sup = LLM(args.supervisor_model or args.model, **kw)
+    wrk = LLM(args.model, **kw)
+    base = LLM(args.baseline_model or args.model, **kw)
     return {"agent": TravelAgent(sup, wrk), "baseline": SinglePromptBaseline(base)}
 
 
@@ -134,6 +137,9 @@ def main():
     ap.add_argument("--model", default="gpt-4.1-mini", help="worker model (and default for the others)")
     ap.add_argument("--supervisor-model", default=None)
     ap.add_argument("--baseline-model", default=None)
+    ap.add_argument("--provider", default="openai", choices=["openai", "gemini", "groq"],
+                    help="OpenAI-compatible endpoint; gemini/groq have free tiers")
+    ap.add_argument("--rpm", type=float, default=None, help="global requests-per-minute cap (free tiers)")
     ap.add_argument("--concurrency", type=int, default=8)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--ids", default=None)
@@ -174,7 +180,7 @@ def main():
     rows.sort(key=lambda r: (r["system"], r["run"], r["id"]))
     (res_dir / "results.json").write_text(json.dumps(rows, ensure_ascii=False, indent=1))
     table, passk = summarize(rows, tasks, names, args.runs)
-    header = (f"# Results ({tag})\n\nModels: worker={args.model}, supervisor={args.supervisor_model or args.model}, "
+    header = (f"# Results ({tag})\n\nProvider: {args.provider}. Models: worker={args.model}, supervisor={args.supervisor_model or args.model}, "
               f"baseline={args.baseline_model or args.model}; temperature 0; wall time {time.time() - t0:.0f}s; "
               f"concurrency {args.concurrency}.\n\n")
     (res_dir / "results.md").write_text(header + table + "\n")

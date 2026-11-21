@@ -51,8 +51,16 @@ TOOL_SCHEMAS = [
         "name": "weather", "description": "Hourly rain probability (0-1) for the trip day.",
         "parameters": {"type": "object", "properties": {}}}},
     {"type": "function", "function": {
-        "name": "propose_plan", "description": "Hand your finished plan JSON back to the supervisor.",
-        "parameters": {"type": "object", "properties": {"plan": {"type": "object"}}, "required": ["plan"]}}},
+        "name": "propose_plan", "description": "Hand your finished, complete plan back to the supervisor.",
+        "parameters": {"type": "object", "properties": {
+            "feasible": {"type": "boolean"},
+            "reason": {"type": "string"},
+            "itinerary": {"type": "array", "items": {"type": "object", "properties": {
+                "venue_id": {"type": "string"}, "start": {"type": "string", "description": "HH:MM"},
+                "end": {"type": "string", "description": "HH:MM"},
+                "members": {"type": "array", "items": {"type": "string"}}},
+                "required": ["venue_id", "start", "end", "members"]}}},
+            "required": ["feasible", "reason", "itinerary"]}}},
 ]
 
 

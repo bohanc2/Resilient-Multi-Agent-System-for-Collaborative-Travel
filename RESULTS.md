@@ -1,6 +1,6 @@
 # Results: agent vs. single-prompt baseline
 
-Team: **<Name 1> (<NetID 1>)**, **<Name 2> (<NetID 2>)**
+Team: **Bo-Han Chang Chien (bohanc2)**, **Yu-Wei Huang (yuweih5)**
 
 Run tag `final-gpt41mini`, on 2026-11-20. All three roles use `gpt-4.1-mini` (supervisor, sub-agents, baseline) at temperature 0. That way the comparison isolates the architecture, not the model.
 

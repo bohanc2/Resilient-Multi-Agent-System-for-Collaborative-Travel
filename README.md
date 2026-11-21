@@ -1,6 +1,6 @@
 # Resilient Multi-Agent System for Collaborative Travel: evaluation harness
 
-Team: **<Name 1> (<NetID 1>)**, **<Name 2> (<NetID 2>)**
+Team: **Bo-Han Chang Chien (bohanc2)**, **Yu-Wei Huang (yuweih5)**
 
 ## 1. Project overview
 

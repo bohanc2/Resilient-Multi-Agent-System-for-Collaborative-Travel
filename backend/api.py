@@ -224,7 +224,7 @@ async def plan_stream(req: PlanRequest):
             # Step 1: Orchestrator initialization
             city_name = setup.get("city_display", setup.get("city", "taipei").title())
             n_travelers = len(setup.get("travelers", []))
-            n_days = max(1, min(5, int(setup.get("duration_days", setup.get("days", 2)))))
+            n_days = max(1, min(5, int(setup.get("duration_days") or setup.get("days") or 2)))
             yield f"data: {json.dumps({'event': 'start', 'step': 'orchestrator', 'node': 'orchestrator', 'message': f'Initializing multi-agent planning workflow for {city_name} ({n_days} days, {n_travelers} travelers)...'})}\n\n"
             await asyncio.sleep(0.1)
 

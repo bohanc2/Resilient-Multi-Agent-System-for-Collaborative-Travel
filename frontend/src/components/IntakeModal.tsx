@@ -84,7 +84,8 @@ export default function IntakeModal({
 
   useEffect(() => {
     if (isOpen) {
-      setCurrentSetup(setup);
+      const initDays = setup.duration_days || setup.days || 2;
+      setCurrentSetup({ ...setup, days: initDays, duration_days: initDays });
       const init: Record<number, string> = {};
       setup.travelers.forEach((t, i) => {
         init[i] = t.interests.join(", ");
@@ -214,11 +215,11 @@ export default function IntakeModal({
       const parsed = raw !== undefined ? raw.split(",").map((s) => s.trim()).filter(Boolean) : t.interests;
       return { ...t, interests: parsed.length > 0 ? parsed : ["scenic"] };
     });
-    const finalDays = currentSetup.days || 2;
+    const finalDays = currentSetup.days || currentSetup.duration_days || 2;
     onSubmit({
       ...currentSetup,
       days: finalDays,
-      duration_days: currentSetup.duration_days || finalDays,
+      duration_days: finalDays,
       travelers: finalTravelers,
     });
     onClose();

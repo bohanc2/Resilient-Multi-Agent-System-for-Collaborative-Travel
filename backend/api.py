@@ -119,6 +119,29 @@ def get_taipei_preset():
     return TAIPEI_6P_PRESET
 
 
+@app.get("/api/venues")
+def get_venues(city: str = "taipei"):
+    """Return all venues for the requested city with coordinates, tags, hours, and costs."""
+    vs = venues_for({"city": city})
+    return {
+        vid: {
+            "id": vid,
+            "name": v.get("name", vid),
+            "lat": v.get("lat"),
+            "lon": v.get("lon"),
+            "indoor": v.get("indoor", True),
+            "tags": v.get("tags", []),
+            "cost": v.get("cost", 0),
+            "walk": v.get("walk", 0),
+            "open": v.get("open", "09:00"),
+            "close": v.get("close", "21:00"),
+            "min_minutes": v.get("min_minutes", 60),
+            "description": v.get("description", "")
+        }
+        for vid, v in vs.items()
+    }
+
+
 @app.post("/api/plan/stream")
 async def plan_stream(req: PlanRequest):
     """

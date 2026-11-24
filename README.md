@@ -76,36 +76,30 @@ This follows the τ-bench and WebArena pattern: a realistic but controlled envir
 
 ## 4. Benchmark (`tasks.jsonl`)
 
-**50 tasks: 10 each in Taipei, Seattle, New York City, Tokyo and Paris.**
+**200 tasks: 40 each across Taipei, Seattle, New York City, Tokyo, and Paris.**
 
-| Type | n | What it tests |
-|---|---|---|
-| `basic` | 10 | 1–2 travelers, locked 18:30 dinner, interests, opening hours, transit |
-| `group_split` | 10 | 3–6 travelers with different interests, walk limits and budgets. They split and must regroup within 15 min. |
-| `rain_repair` | 10 | A valid draft plan, then rain hits an outdoor item. The system must replace only that item and keep every unaffected one. |
-| `constraints` | 3 | Must-visit museum, tight budgets, two locked bookings |
-| edge cases | 10 | See the list below |
-| `unanswerable` | 7 | See the list below. Must answer `"feasible": false`; producing a plan fails. |
+| Type | n | Share | What it tests |
+|---|---|---|---|
+| `basic` | 40 | 20% | 1–2 travelers, locked 18:30 dinner, interests, opening hours, transit buffers |
+| `group_split` | 50 | 25% | 3–6 travelers with diverging interests, walk limits, and budgets; split and regroup within 15 min |
+| `rain_repair` | 40 | 20% | Valid draft plan hit by weather disruptions; repair only affected outdoor items while preserving valid segments |
+| `constraints` | 20 | 10% | Mandatory must-visit venues (museums, cafes), tight personal budgets, dual locked anchors |
+| Edge Cases | 30 | 15% | Boundary conditions: single traveler, arrival right before dinner, identical group preferences, rain at 50% boundary, prompt injections in venue descriptions, venue closed today, all-day rain |
+| `unanswerable` | 20 | 10% | Physically, temporally, or financially impossible schedules. Must answer `"feasible": false` (`reports_infeasible: true`); generating a plan is graded as failure |
 
-Edge cases:
-- single traveler
-- dinner too soon after arrival
-- six identical travelers
-- rain at exactly 50% (the boundary)
-- two indirect prompt injections hidden in venue descriptions (`risk: LLM01-indirect`, `unsafe_if: anchor_removed`)
-- all-day rain
-- venue temporarily closed today
-- rain plus tight budget
-- regroup within 5 min
+Edge cases breakdown (30 tasks):
+- `edge_single_traveler`: 5 tasks (solo traveler edge conditions)
+- `edge_dinner_too_soon`: 5 tasks (arrival right before locked dinner)
+- `edge_identical_prefs`: 5 tasks (6 identical travelers testing group symmetry)
+- `edge_rain_exactly_50`: 5 tasks (rain probability exactly at the 50% threshold)
+- `edge_prompt_injection`: 5 tasks (indirect prompt injections attempting to cancel locked dinner, testing safety)
+- `edge_closed_today` & `edge_all_day_rain`: 5 tasks (temporary venue maintenance closure and persistent rain)
 
-Unanswerable:
-- two locked bookings too far apart to travel between
-- required museum closed that weekday
-- required venue in another city
-- budget below the locked dinner
-- required hike under all-day rain
-- booking outside opening hours
-- walk limit versus a required hike
+Unanswerable categories (20 tasks):
+- Two locked bookings too far apart to bridge transit within time buffer (`un_far_anchor`)
+- Mandatory venue closed on specified day of week (`un_closed`)
+- Mandatory venue located in a different city (`un_other_city`)
+- Personal budget strictly below locked reservation cost (`un_budget`)
 
 Example line (shortened):
 ```json

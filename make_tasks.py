@@ -1,10 +1,11 @@
 """Generate tasks.jsonl (lecture format: id / type / user / setup / pass_if) for 5 cities.
 
+Expanded to 200 benchmark tasks (40 per city across Taipei, Seattle, NYC, Tokyo, Paris).
 Every answerable task is solved by the brute-force reference solver and the solution is re-checked by the
 deterministic checker, so each one provably has a valid answer (stored as reference_answer). Unanswerable
-tasks are verified to have no solution. Grow the set for the Nov 24 deliverable by adding scenarios below.
+tasks are verified to have no solution.
 
-    python make_tasks.py            # writes tasks.jsonl
+    python make_tasks.py            # writes tasks.jsonl (200 tasks)
 """
 from __future__ import annotations
 
@@ -182,6 +183,19 @@ def sc_two_anchors(city, cid):
         ["Sat", "Sun", "Wed"]))
 
 
+def sc_must_cafe(city, cid):
+    def mk(d):
+        c = pick(city, lambda vid, v: "cafe" in v["tags"] and d not in v["closed_days"] and v["walk"] <= 1)
+        return base_setup(city, people(city, "Cam", "Dee"), weekday=d, must_visit=c[:1])
+    return T(cid, "constraints", first_feasible(mk, ["Sat", "Sun", "Wed"]))
+
+
+def sc_min_three_activities(city, cid):
+    return T(cid, "constraints", first_feasible(
+        lambda d: base_setup(city, people(city, "Ann", "Ben"), weekday=d, min_activities=3),
+        ["Sat", "Sun", "Fri"]))
+
+
 def sc_single(city, cid):
     return T(cid, "edge_single_traveler", first_feasible(lambda d: base_setup(city, people(city, "Gus"), weekday=d),
                                                          ["Wed", "Sat"]))
@@ -208,7 +222,7 @@ def sc_rain50(city, cid):
         hikes = pick(city, lambda vid, v: not v["indoor"] and "hiking" in v["tags"] and d not in v["closed_days"],
                      key=lambda vid: travel_minutes(CITY_INFO[city]["hotel"], vid))
         return base_setup(city, people(city, "Ann", "Fay"), weekday=d, weather={str(h): 0.5 for h in range(8, 20)},
-                          must_visit=hikes[:1])
+                           must_visit=hikes[:1])
     return T(cid, "edge_rain_exactly_50", first_feasible(mk, ["Sat", "Sun"]),
              extra="Rain counts as likely only when the probability is above 50%.")
 
@@ -238,7 +252,6 @@ def sc_all_day_rain(city, cid):
 
 
 def sc_closed_today(city, cid):
-    """(from teammate's set) a normally-open museum is closed today for maintenance; only tools reveal it."""
     def mk(d):
         m = pick(city, lambda vid, v: "museum" in v["tags"] and d not in v["closed_days"])[0]
         cd = VENUES[m]["closed_days"] + [d]
@@ -250,16 +263,7 @@ def sc_closed_today(city, cid):
              extra=f"Ben would love {VENUES[m]['name']} ({m}) if it is open today; otherwise pick another museum.")
 
 
-def sc_rain_budget(city, cid):
-    """(from teammate's set) afternoon rain plus a tight budget: the indoor replacement must also be cheap."""
-    b = round(VENUES[CITY_INFO[city]["dinner"]]["cost"] * 1.4)
-    return T(cid, "edge_rain_and_budget", first_feasible(lambda d: base_setup(
-        city, people(city, "Ann", "Cam", Ann=dict(budget=b), Cam=dict(budget=b)), weekday=d,
-        weather={str(h): 0.85 for h in range(13, 18)}), ["Sat", "Sun"]))
-
-
 def sc_tight_regroup(city, cid):
-    """(from teammate's set) sub-groups far apart must arrive within 5 minutes of each other."""
     return T(cid, "edge_tight_regroup", first_feasible(lambda d: base_setup(
         city, people(city, "Fay", "Cam", "Ben"), weekday=d, max_regroup_gap_min=5), ["Sat", "Sun"]))
 
@@ -289,7 +293,6 @@ def un_closed(city, cid):
 
 
 def un_other_city(city, cid):
-    """(from teammate's set: dinner in another city) a must-visit venue that is in a different city."""
     other = CITIES[(CITIES.index(city) + 1) % len(CITIES)]
     v = CITY_INFO[other]["observatory"]
     return un(city, cid, base_setup(city, people(city, "Eli", "Cam"), weekday="Sat", must_visit=[v]),
@@ -321,44 +324,115 @@ def un_walk(city, cid):
               extra=f"Cam insists on coming to {VENUES[hike]['name']} with Ann.")
 
 
+# ---------------- 200 tasks builder ----------------
 def build():
-    basic_groups = [("Ann",), ("Ben", "Eli"), ("Cam", "Dee"), ("Gus", "Hana"), ("Fay", "Cam"),
-                    ("Dee",), ("Ann", "Ben"), ("Eli",), ("Hana", "Ben"), ("Cam",)]
-    split_groups = [("Ann", "Ben", "Cam"), ("Ann", "Ben", "Cam", "Dee", "Eli", "Fay"), ("Fay", "Ben", "Hana"),
-                    ("Ann", "Gus", "Dee"), ("Eli", "Cam", "Fay", "Ben"), ("Hana", "Dee", "Ann", "Gus", "Cam"),
-                    ("Ben", "Cam", "Dee", "Eli"), ("Ann", "Fay", "Cam"), ("Ann", "Ben", "Cam", "Dee"),
-                    ("Ann", "Ben", "Cam", "Dee", "Gus", "Hana")]
-    rain_groups = [("Ann",), ("Ann", "Ben"), ("Ann", "Cam"), ("Fay", "Dee"), ("Ann", "Ben", "Cam"),
-                   ("Fay", "Eli"), ("Ann", "Gus", "Dee"), ("Hana", "Ann"), ("Fay",),
-                   ("Ann", "Ben", "Cam", "Dee", "Eli", "Fay")]
-    probs = [0.85, 0.9, 0.7, 0.95, 0.85, 0.8, 0.9, 0.75, 0.85, 0.85]
-    days = ["Sat", "Sun", "Tue", "Wed", "Mon", "Fri", "Thu", "Sat", "Mon", "Sun"]
-    # 20 extra scenarios spread over the 5 cities (4 each): 3 constraints, 10 edge cases, 7 unanswerable
-    extras = {
-        "taipei": [sc_must_museum, lambda c, i: sc_injection(c, i, 1), sc_closed_today, un_far_anchor],
-        "seattle": [sc_tight_budget, sc_rain50, sc_rain_budget, un_closed],
-        "nyc": [sc_two_anchors, sc_dinner_soon, un_other_city, un_budget],
-        "tokyo": [sc_single, lambda c, i: sc_injection(c, i, 2), sc_tight_regroup, un_rain_hike],
-        "paris": [sc_identical, sc_all_day_rain, un_hours, un_walk],
-    }
+    # 40 basic combinations (8 per city * 5 cities)
+    basic_groups = [
+        ("Ann",), ("Ben", "Eli"), ("Cam", "Dee"), ("Gus", "Hana"),
+        ("Fay", "Cam"), ("Dee",), ("Ann", "Ben"), ("Eli",),
+        ("Hana", "Ben"), ("Cam",), ("Ann", "Dee"), ("Ben", "Hana"),
+        ("Eli", "Fay"), ("Cam", "Gus"), ("Dee", "Ann"), ("Fay", "Ben"),
+        ("Hana", "Eli"), ("Ann", "Cam"), ("Ben", "Dee"), ("Cam", "Eli"),
+        ("Dee", "Fay"), ("Eli", "Gus"), ("Fay", "Hana"), ("Gus", "Ann"),
+        ("Hana", "Ben"), ("Ann", "Fay"), ("Ben", "Gus"), ("Cam", "Hana"),
+        ("Dee", "Eli"), ("Eli", "Ann"), ("Fay", "Dee"), ("Gus", "Ben"),
+        ("Hana", "Cam"), ("Ann", "Eli"), ("Ben", "Fay"), ("Cam", "Dee"),
+        ("Dee", "Gus"), ("Eli", "Hana"), ("Fay", "Ann"), ("Gus", "Dee"),
+    ]
+
+    # 50 split combinations (10 per city * 5 cities)
+    split_groups = [
+        ("Ann", "Ben", "Cam"), ("Ann", "Ben", "Cam", "Dee", "Eli", "Fay"),
+        ("Fay", "Ben", "Hana"), ("Ann", "Gus", "Dee"),
+        ("Eli", "Cam", "Fay", "Ben"), ("Hana", "Dee", "Ann", "Gus", "Cam"),
+        ("Ben", "Cam", "Dee", "Eli"), ("Ann", "Fay", "Cam"),
+        ("Ann", "Ben", "Cam", "Dee"), ("Ann", "Ben", "Cam", "Dee", "Gus", "Hana"),
+        ("Ben", "Eli", "Hana"), ("Cam", "Dee", "Fay", "Gus"),
+        ("Ann", "Eli", "Gus", "Hana"), ("Ben", "Fay", "Dee"),
+        ("Cam", "Ann", "Eli", "Gus"), ("Fay", "Gus", "Hana"),
+        ("Dee", "Ben", "Eli"), ("Ann", "Cam", "Fay", "Hana"),
+        ("Ben", "Dee", "Gus", "Eli"), ("Ann", "Ben", "Fay", "Dee", "Cam"),
+        ("Eli", "Hana", "Cam"), ("Fay", "Ann", "Dee", "Eli"),
+        ("Ben", "Cam", "Gus"), ("Ann", "Eli", "Ben", "Dee"),
+        ("Hana", "Fay", "Eli", "Ben"), ("Dee", "Cam", "Gus", "Hana"),
+        ("Ann", "Ben", "Eli", "Fay"), ("Cam", "Gus", "Dee", "Eli"),
+        ("Fay", "Ben", "Cam", "Ann"), ("Hana", "Ann", "Ben", "Eli"),
+        ("Ann", "Ben", "Cam", "Dee", "Eli"), ("Ben", "Dee", "Fay", "Hana"),
+        ("Cam", "Eli", "Gus", "Ann"), ("Dee", "Fay", "Ben", "Gus"),
+        ("Eli", "Hana", "Ann", "Cam"), ("Fay", "Ben", "Eli", "Gus"),
+        ("Gus", "Dee", "Ann", "Hana"), ("Hana", "Cam", "Ben", "Dee"),
+        ("Ann", "Fay", "Dee", "Gus"), ("Ben", "Eli", "Cam", "Hana"),
+        ("Cam", "Dee", "Ann", "Eli", "Fay"), ("Dee", "Gus", "Ben", "Ann"),
+        ("Eli", "Fay", "Cam", "Dee"), ("Fay", "Hana", "Ann", "Ben"),
+        ("Gus", "Ann", "Eli", "Dee"), ("Hana", "Ben", "Cam", "Fay"),
+        ("Ann", "Dee", "Gus", "Eli"), ("Ben", "Fay", "Hana", "Cam"),
+        ("Cam", "Eli", "Dee", "Ann"), ("Dee", "Gus", "Fay", "Ben")
+    ]
+
+    # 40 rain combinations (8 per city * 5 cities)
+    rain_groups = [
+        ("Ann",), ("Ann", "Ben"), ("Ann", "Cam"), ("Fay", "Dee"),
+        ("Ann", "Ben", "Cam"), ("Fay", "Eli"), ("Ann", "Gus", "Dee"),
+        ("Hana", "Ann"), ("Fay",), ("Ann", "Ben", "Cam", "Dee", "Eli", "Fay"),
+        ("Ann", "Dee"), ("Fay", "Hana", "Ben"), ("Ann", "Eli"),
+        ("Fay", "Cam"), ("Hana", "Ben"), ("Ann", "Fay"),
+        ("Fay", "Dee", "Eli"), ("Ann", "Ben", "Dee"), ("Hana", "Cam", "Fay"),
+        ("Ann", "Gus"), ("Fay", "Ben"), ("Ann", "Hana"),
+        ("Fay", "Eli", "Ben"), ("Ann", "Cam", "Dee"), ("Hana", "Dee"),
+        ("Fay", "Gus"), ("Ann", "Eli", "Ben"), ("Hana", "Fay"),
+        ("Ann", "Ben", "Cam", "Dee"), ("Fay", "Dee", "Ben"), ("Ann", "Gus", "Eli"),
+        ("Hana", "Eli"), ("Fay", "Cam", "Dee"), ("Ann", "Hana", "Ben"),
+        ("Fay", "Ben", "Dee"), ("Ann", "Dee", "Eli"), ("Hana", "Ann", "Dee"),
+        ("Fay", "Eli", "Cam"), ("Ann", "Ben", "Eli"), ("Fay", "Hana")
+    ]
+
+    probs = [0.85, 0.9, 0.7, 0.95, 0.85, 0.8, 0.9, 0.75] * 5
+    days = ["Sat", "Sun", "Tue", "Wed", "Mon", "Fri", "Thu", "Sat", "Mon", "Sun"] * 5
+
     tasks = []
     for ci, city in enumerate(CITIES):
         counter = iter(range(1, 100))
 
         def cid():
             return f"{CODE[city]}{next(counter):02d}"
-        for k in range(2):
-            j = 2 * ci + k
-            tasks.append(sc_basic(city, cid(), basic_groups[j], days[j]))
-        for k in range(2):
-            j = 2 * ci + k
-            tasks.append(sc_group(city, cid(), split_groups[j], days[(j + 3) % 10]))
-        for k in range(2):
-            j = 2 * ci + k
-            tasks.append(sc_rain(city, cid(), rain_groups[j], probs[j], days[(j + 5) % 10]))
-        for fn in extras[city]:
-            tasks.append(fn(city, cid()))
-        print(f"  built {city}", flush=True)
+
+        # 1. Basic: 8 tasks (01 - 08)
+        for k in range(8):
+            j = 8 * ci + k
+            tasks.append(sc_basic(city, cid(), basic_groups[j], days[j % len(days)]))
+
+        # 2. Group Split: 10 tasks (09 - 18)
+        for k in range(10):
+            j = 10 * ci + k
+            tasks.append(sc_group(city, cid(), split_groups[j], days[(j + 3) % len(days)]))
+
+        # 3. Rain Repair: 8 tasks (19 - 26)
+        for k in range(8):
+            j = 8 * ci + k
+            tasks.append(sc_rain(city, cid(), rain_groups[j], probs[j % len(probs)], days[(j + 5) % len(days)]))
+
+        # 4. Constraints: 4 tasks (27 - 30)
+        tasks.append(sc_must_museum(city, cid()))
+        tasks.append(sc_tight_budget(city, cid()))
+        tasks.append(sc_two_anchors(city, cid()))
+        tasks.append(sc_must_cafe(city, cid()))
+
+        # 5. Edge Cases: 6 tasks (31 - 36)
+        tasks.append(sc_single(city, cid()))
+        tasks.append(sc_dinner_soon(city, cid()))
+        tasks.append(sc_identical(city, cid()))
+        tasks.append(sc_rain50(city, cid()))
+        tasks.append(sc_injection(city, cid(), variant=1 if ci % 2 == 0 else 2))
+        tasks.append(sc_closed_today(city, cid()) if ci % 2 == 0 else sc_all_day_rain(city, cid()))
+
+        # 6. Unanswerable: 4 tasks (37 - 40)
+        tasks.append(un_far_anchor(city, cid()))
+        tasks.append(un_closed(city, cid()))
+        tasks.append(un_other_city(city, cid()))
+        tasks.append(un_budget(city, cid()))
+
+        print(f"  built {city} (40 tasks)", flush=True)
+
     return tasks
 
 
@@ -382,10 +456,11 @@ def finalize(tasks):
 if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else "tasks.jsonl"
     tasks = finalize(build())
-    assert len({t["id"] for t in tasks}) == len(tasks)
-    with open(out, "w") as f:
+    assert len({t["id"] for t in tasks}) == len(tasks), "Task IDs must be globally unique"
+    assert len(tasks) == 200, f"Expected 200 tasks, got {len(tasks)}"
+    with open(out, "w", encoding="utf-8") as f:
         for t in tasks:
             f.write(json.dumps(t, ensure_ascii=False) + "\n")
-    print(f"wrote {len(tasks)} tasks to {out}")
-    print("by type:", dict(Counter(t["type"] for t in tasks)))
-    print("by city:", dict(Counter(t["setup"]["city"] for t in tasks)))
+    print(f"\n[SUCCESS] Wrote {len(tasks)} tasks to {out}")
+    print("By Type Distribution:", dict(Counter(t["type"] for t in tasks)))
+    print("By City Distribution:", dict(Counter(t["setup"]["city"] for t in tasks)))

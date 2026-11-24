@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ArrowRight, SlidersHorizontal, Compass, Sparkles, Check, ShieldCheck } from "lucide-react";
+import { ArrowRight, SlidersHorizontal, Compass, Sparkles } from "lucide-react";
 
 interface OnboardingStateProps {
   onLoadPreset: () => void;
@@ -78,7 +78,7 @@ export default function OnboardingState({
               className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gray-900 hover:bg-gray-800 active:scale-[0.98] text-white text-sm font-semibold transition-all shadow-sm flex items-center justify-center gap-2"
             >
               <Sparkles className="w-4 h-4 text-gray-300" />
-              <span>Explore Preset: Taipei 6-Pax Tour</span>
+              <span>Try Demo: 2-Day Taipei Group Trip</span>
               <ArrowRight className="w-4 h-4" />
             </button>
 
@@ -90,22 +90,6 @@ export default function OnboardingState({
               <SlidersHorizontal className="w-4 h-4 text-gray-500" />
               <span>Custom Group Setup</span>
             </button>
-          </div>
-
-          {/* Feature Highlights */}
-          <div className="pt-4 border-t border-gray-100 flex flex-wrap items-center justify-center gap-y-2 gap-x-4 text-xs text-gray-500">
-            <span className="flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5 text-emerald-600" />
-              <span>3 Split Tracks (Hiking, Art, Cafe)</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5 text-emerald-600" />
-              <span>18:30 Taipei 101 Dinner Anchor</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Real-time Weather Contingency</span>
-            </span>
           </div>
         </div>
       </main>

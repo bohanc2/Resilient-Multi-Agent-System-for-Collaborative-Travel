@@ -207,13 +207,16 @@ async def plan_stream(req: PlanRequest):
     Stream plan generation progress via SSE:
     orchestrator -> base_planner -> group_sync -> checker -> final plan
     """
-    # Defensive cross-city setup sanitization off-thread
-    from harness.solver import sanitize_setup
-    venues = await asyncio.to_thread(venues_for, req.setup)
-    setup = await asyncio.to_thread(sanitize_setup, req.setup, venues)
-
     async def event_generator():
         try:
+            from harness.solver import sanitize_setup, deduplicate_itinerary
+            venues = await asyncio.to_thread(venues_for, req.setup)
+            if not venues or len(venues) < 3:
+                yield f"data: {json.dumps({'event': 'error', 'step': 'error', 'node': 'base_planner', 'message': 'Could not find enough venues in this city, please try a major city.'})}\n\n"
+                return
+
+            setup = await asyncio.to_thread(sanitize_setup, req.setup, venues)
+
             # Step 1: Orchestrator initialization
             city_name = setup.get("city", "taipei").title()
             n_travelers = len(setup.get("travelers", []))
@@ -230,6 +233,8 @@ async def plan_stream(req: PlanRequest):
                 plan = await asyncio.to_thread(solve, setup)
                 if not plan:
                     plan = {"feasible": False, "reason": "No feasible itinerary found under current constraints", "itinerary": []}
+                else:
+                    plan["itinerary"] = deduplicate_itinerary(plan.get("itinerary", []))
             except Exception as e:
                 plan = {"feasible": False, "reason": f"Solver fallback: {str(e)}", "itinerary": []}
 
@@ -273,7 +278,7 @@ async def plan_stream(req: PlanRequest):
 
 def _compute_replan(req: ReplanRequest) -> dict:
     current_plan = req.current_plan
-    from harness.solver import sanitize_setup
+    from harness.solver import sanitize_setup, deduplicate_itinerary
     venues = venues_for(req.setup)
     setup = sanitize_setup(dict(req.setup), venues)
     event = req.event
@@ -395,7 +400,7 @@ def _compute_replan(req: ReplanRequest) -> dict:
     updated_plan = {
         "feasible": True,
         "reason": f"Successfully repaired {event.time} rain spike with localized indoor contingency",
-        "itinerary": new_items
+        "itinerary": deduplicate_itinerary(new_items)
     }
 
     diff_summary = {

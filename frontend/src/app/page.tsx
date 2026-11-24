@@ -11,7 +11,8 @@ import DisruptionSimulator from "../components/DisruptionSimulator";
 import AuditDrawer from "../components/AuditDrawer";
 import IntakeModal from "../components/IntakeModal";
 import VenueDetailDrawer from "../components/VenueDetailDrawer";
-import { AgentStepEvent, PlanOutput, ReplanDiff, Setup, Traveler } from "../types";
+import AddCustomStopModal from "../components/AddCustomStopModal";
+import { AgentStepEvent, ItineraryItem, PlanOutput, ReplanDiff, Setup, Traveler } from "../types";
 import { getVenue } from "../lib/venues";
 
 // Dynamic import for Leaflet map to avoid window undefined SSR error
@@ -32,19 +33,15 @@ const DEFAULT_SETUP: Setup = {
   day_end: "21:30",
   start_location: "hotel_ximen",
   travelers: [
-    { name: "Alice", interests: ["hiking", "scenic"], max_walk: 3, budget: 2000 },
-    { name: "Bob", interests: ["hiking", "nature"], max_walk: 3, budget: 2000 },
-    { name: "Carol", interests: ["museum", "art"], max_walk: 1, budget: 2500 },
-    { name: "Dave", interests: ["art", "design"], max_walk: 1, budget: 2500 },
-    { name: "Eve", interests: ["cafe", "shopping"], max_walk: 0, budget: 2200 },
-    { name: "Frank", interests: ["cafe", "books"], max_walk: 0, budget: 2200 },
+    { name: "Alice", interests: ["hiking", "scenic"], max_walk: 2, budget: 2000 },
+    { name: "Bob", interests: ["food", "cafe"], max_walk: 1, budget: 1800 },
   ],
   anchors: [
     {
       venue_id: "din_tai_fung_101",
       start: "18:30",
       end: "19:30",
-      members: ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank"],
+      members: ["Alice", "Bob"],
     },
   ],
   requirements: {
@@ -82,6 +79,7 @@ export default function Home() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isIntakeOpen, setIsIntakeOpen] = useState(false);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
+  const [isAddStopOpen, setIsAddStopOpen] = useState(false);
 
   // Health check on mount
   useEffect(() => {
@@ -283,6 +281,102 @@ export default function Home() {
     runPlanStream(newSetup);
   };
 
+  // 7. Interactive Itinerary Edit
+  const handleUpdateItem = (
+    venueId: string,
+    updates: { name: string; start: string; end: string; note?: string }
+  ) => {
+    if (venuesMap[venueId]) {
+      setVenuesMap((prev) => ({
+        ...prev,
+        [venueId]: {
+          ...prev[venueId],
+          name: updates.name,
+        },
+      }));
+    }
+
+    setPlan((prev) => {
+      if (!prev) return prev;
+      const updatedItinerary = prev.itinerary.map((it) => {
+        if (it.venue_id === venueId) {
+          return {
+            ...it,
+            start: updates.start,
+            end: updates.end,
+            note: updates.note,
+          };
+        }
+        return it;
+      });
+      return {
+        ...prev,
+        itinerary: updatedItinerary,
+      };
+    });
+
+    setReplanModifiedVenueIds((prev) =>
+      prev.includes(venueId) ? prev : [...prev, venueId]
+    );
+  };
+
+  // 8. Add Custom Stop
+  const handleAddCustomStop = (data: {
+    name: string;
+    start: string;
+    end: string;
+    cost: number;
+    indoor: boolean;
+    members: string[];
+    note?: string;
+  }) => {
+    const customId = `custom_${Date.now()}`;
+    const newVenue = {
+      id: customId,
+      name: data.name,
+      cost: data.cost,
+      indoor: data.indoor,
+      walk: 1,
+      open: "08:00",
+      close: "22:00",
+      tags: ["custom"],
+      description: data.note || "Custom stop added by user.",
+    };
+
+    setVenuesMap((prev) => ({
+      ...prev,
+      [customId]: newVenue,
+    }));
+
+    setPlan((prev) => {
+      if (!prev) return prev;
+      const newItem: ItineraryItem = {
+        venue_id: customId,
+        start: data.start,
+        end: data.end,
+        members: data.members,
+        note: data.note,
+        is_custom: true,
+      };
+      const updated = [...prev.itinerary, newItem].sort((a, b) =>
+        a.start.localeCompare(b.start)
+      );
+      return {
+        ...prev,
+        itinerary: updated,
+      };
+    });
+
+    setReplanModifiedVenueIds((prev) => [...prev, customId]);
+    setSelectedVenueId(customId);
+  };
+
+  const selectedItem =
+    plan?.itinerary?.find((it) => it.venue_id === selectedVenueId) || null;
+  const isSelectedAnchor =
+    setup.anchors.some((a) => a.venue_id === selectedVenueId) ||
+    selectedVenueId === "din_tai_fung_101";
+
   // =========================================================================
   // STATE A: Onboarding Empty State (Linear style clean canvas)
   // =========================================================================
@@ -350,6 +444,7 @@ export default function Home() {
             onSelectVenue={handleSelectVenue}
             replanModifiedVenueIds={replanModifiedVenueIds}
             venuesMap={venuesMap}
+            onOpenAddStop={() => setIsAddStopOpen(true)}
           />
         </section>
 
@@ -393,7 +488,17 @@ export default function Home() {
       <VenueDetailDrawer
         isOpen={isDetailOpen}
         venue={selectedVenueId ? getVenue(selectedVenueId, venuesMap) : null}
+        item={selectedItem}
+        isAnchor={isSelectedAnchor}
         onClose={() => setIsDetailOpen(false)}
+        onUpdateItem={handleUpdateItem}
+      />
+
+      <AddCustomStopModal
+        isOpen={isAddStopOpen}
+        onClose={() => setIsAddStopOpen(false)}
+        travelers={setup.travelers}
+        onAddStop={handleAddCustomStop}
       />
     </div>
   );

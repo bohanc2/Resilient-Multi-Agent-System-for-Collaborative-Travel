@@ -102,15 +102,36 @@ def fetch_from_google_places(city: str, api_key: str, limit: int = 12) -> Dict[s
     return venues
 
 
-def fetch_from_osm_nominatim(city: str, limit: int = 12) -> Dict[str, Dict[str, Any]]:
-    """Fetch real venues from OpenStreetMap Nominatim API (Free, no API key required)."""
+def fetch_from_osm_nominatim(city: str, limit: int = 16) -> Dict[str, Dict[str, Any]]:
+    """Fetch real venues from OpenStreetMap Nominatim API across diverse interest categories."""
     venues: Dict[str, Dict[str, Any]] = {}
-    queries = [f"attractions in {city}", f"museums in {city}", f"cafes in {city}"]
+    center_lat, center_lon = 0.0, 0.0
 
-    for q in queries:
+    # 1. Geocode city center
+    try:
+        geo_url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(city)}&format=json&limit=1"
+        geo_req = urllib.request.Request(geo_url, headers={"User-Agent": "AuraTravelPlanner/2.0 (Resilient-Multi-Agent)"})
+        with urllib.request.urlopen(geo_req, timeout=2.5) as r:
+            geo_res = json.load(r)
+            if geo_res:
+                center_lat = float(geo_res[0].get("lat", 0.0))
+                center_lon = float(geo_res[0].get("lon", 0.0))
+    except Exception as e:
+        logger.warning(f"OSM geocoding failed for {city}: {e}")
+
+    # 2. Query balanced categories (attractions, museums, cafes, parks, restaurants)
+    categories = [
+        (f"attractions in {city}", ["scenic", "culture"]),
+        (f"museums in {city}", ["museum", "art"]),
+        (f"cafes in {city}", ["cafe", "food"]),
+        (f"parks in {city}", ["nature", "hiking", "scenic"]),
+        (f"restaurants in {city}", ["food", "dining"]),
+    ]
+
+    for q, default_tags in categories:
         if len(venues) >= limit:
             break
-        url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(q)}&format=json&limit=6&addressdetails=1"
+        url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(q)}&format=json&limit=3&addressdetails=1"
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "AuraTravelPlanner/2.0 (Resilient-Multi-Agent)"})
             with urllib.request.urlopen(req, timeout=2.5) as r:
@@ -123,21 +144,25 @@ def fetch_from_osm_nominatim(city: str, limit: int = 12) -> Dict[str, Dict[str, 
                     vid = f"{city}_{_slugify(name)}"
                     if vid in venues:
                         continue
-                    lat = float(item.get("lat", 0.0))
-                    lon = float(item.get("lon", 0.0))
+                    lat = float(item.get("lat", center_lat or 0.0))
+                    lon = float(item.get("lon", center_lon or 0.0))
                     category = item.get("category", "")
                     osm_type = item.get("type", "")
 
                     is_indoor = not any(w in name.lower() or w in [category, osm_type] for w in ["park", "mountain", "trail", "beach", "garden", "viewpoint"])
                     walk_lvl = 3 if any(w in name.lower() for w in ["mountain", "trail", "peak"]) else (1 if not is_indoor else 0)
 
-                    tags = ["scenic"]
+                    tags = list(default_tags)
                     if "museum" in name.lower() or osm_type == "museum":
                         tags = ["museum", "art"]
                     elif "cafe" in name.lower() or osm_type == "cafe":
                         tags = ["cafe", "food"]
+                    elif "restaurant" in name.lower() or osm_type in ["restaurant", "fast_food"]:
+                        tags = ["food", "dining"]
                     elif "park" in name.lower() or osm_type == "park":
                         tags = ["nature", "scenic"]
+
+                    cost = 25 if "dining" in tags or "food" in tags else (15 if "museum" in tags else (8 if "cafe" in tags else 0))
 
                     venues[vid] = {
                         "id": vid,
@@ -146,10 +171,10 @@ def fetch_from_osm_nominatim(city: str, limit: int = 12) -> Dict[str, Dict[str, 
                         "lon": lon,
                         "indoor": is_indoor,
                         "open": "09:00",
-                        "close": "21:00",
+                        "close": "21:30",
                         "closed_days": [],
                         "min_minutes": 60,
-                        "cost": 150 if "museum" in tags else (120 if "cafe" in tags else 0),
+                        "cost": cost,
                         "walk": walk_lvl,
                         "tags": tags,
                         "description": f"Real venue from OpenStreetMap in {city.title()} ({disp_name[:80]}...).",
@@ -158,7 +183,6 @@ def fetch_from_osm_nominatim(city: str, limit: int = 12) -> Dict[str, Dict[str, 
                     }
         except Exception as e:
             logger.warning(f"OSM Nominatim query error for {q}: {e}")
-            break
 
     return venues
 

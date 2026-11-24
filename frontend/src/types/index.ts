@@ -35,6 +35,8 @@ export interface ItineraryItem {
   start: string;
   end: string;
   members: string[];
+  note?: string;
+  is_custom?: boolean;
 }
 
 export interface PlanOutput {

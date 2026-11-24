@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { X, Users, Lock, Sparkles } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, Users, Lock, Sparkles, Plus, Trash2 } from "lucide-react";
 import { Setup, Traveler } from "../types";
 
 interface IntakeModalProps {
@@ -11,6 +11,25 @@ interface IntakeModalProps {
   onSubmit: (newSetup: Setup) => void;
   isStreaming: boolean;
 }
+
+const CITY_BUTTONS = [
+  { id: "taipei", label: "Taipei" },
+  { id: "paris", label: "Paris" },
+  { id: "tokyo", label: "Tokyo" },
+  { id: "nyc", label: "NYC" },
+  { id: "seattle", label: "Seattle" },
+];
+
+const DEFAULT_TRAVELER_POOL: Traveler[] = [
+  { name: "Alice", interests: ["hiking", "scenic"], max_walk: 2, budget: 2000 },
+  { name: "Bob", interests: ["food", "cafe"], max_walk: 1, budget: 1800 },
+  { name: "Carol", interests: ["art", "museum"], max_walk: 1, budget: 2200 },
+  { name: "Dave", interests: ["architecture", "scenic"], max_walk: 2, budget: 2000 },
+  { name: "Eve", interests: ["shopping", "culture"], max_walk: 1, budget: 2500 },
+  { name: "Frank", interests: ["books", "cafe"], max_walk: 0, budget: 2200 },
+  { name: "Grace", interests: ["photography", "nature"], max_walk: 2, budget: 2000 },
+  { name: "Henry", interests: ["music", "nightlife"], max_walk: 1, budget: 2400 },
+];
 
 const CITY_DEFAULTS: Record<
   string,
@@ -62,6 +81,12 @@ export default function IntakeModal({
 }: IntakeModalProps) {
   const [currentSetup, setCurrentSetup] = useState<Setup>(setup);
 
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentSetup(setup);
+    }
+  }, [isOpen, setup]);
+
   if (!isOpen) return null;
 
   const handleCityChange = (cityName: string) => {
@@ -84,6 +109,49 @@ export default function IntakeModal({
       ...currentSetup,
       city: normalized,
       start_location: newHotel,
+      travelers: updatedTravelers,
+      anchors: updatedAnchors,
+    });
+  };
+
+  const handleAddTraveler = () => {
+    if (currentSetup.travelers.length >= 8) return;
+    const currentNames = new Set(currentSetup.travelers.map((t) => t.name));
+    const nextCandidate = DEFAULT_TRAVELER_POOL.find((p) => !currentNames.has(p.name)) || {
+      name: `Traveler ${currentSetup.travelers.length + 1}`,
+      interests: ["scenic", "food"],
+      max_walk: 1,
+      budget: CITY_DEFAULTS[currentSetup.city.toLowerCase()]?.defaultBudget || 2000,
+    };
+
+    const newTraveler: Traveler = {
+      ...nextCandidate,
+      budget: CITY_DEFAULTS[currentSetup.city.toLowerCase()]?.defaultBudget || nextCandidate.budget,
+    };
+
+    const updatedTravelers = [...currentSetup.travelers, newTraveler];
+    const updatedAnchors = currentSetup.anchors.map((a) => ({
+      ...a,
+      members: updatedTravelers.map((t) => t.name),
+    }));
+
+    setCurrentSetup({
+      ...currentSetup,
+      travelers: updatedTravelers,
+      anchors: updatedAnchors,
+    });
+  };
+
+  const handleRemoveTraveler = (index: number) => {
+    if (currentSetup.travelers.length <= 1) return;
+    const updatedTravelers = currentSetup.travelers.filter((_, idx) => idx !== index);
+    const updatedAnchors = currentSetup.anchors.map((a) => ({
+      ...a,
+      members: updatedTravelers.map((t) => t.name),
+    }));
+
+    setCurrentSetup({
+      ...currentSetup,
       travelers: updatedTravelers,
       anchors: updatedAnchors,
     });
@@ -143,18 +211,18 @@ export default function IntakeModal({
                 className="flex-1 px-3 py-1.5 rounded-lg bg-white text-gray-900 border border-gray-300 text-xs focus:outline-none focus:border-gray-900"
               />
               <div className="flex items-center gap-1">
-                {["taipei", "paris", "tokyo", "nyc", "seattle"].map((c) => (
+                {CITY_BUTTONS.map(({ id, label }) => (
                   <button
-                    key={c}
+                    key={id}
                     type="button"
-                    onClick={() => handleCityChange(c)}
-                    className={`px-2 py-1 rounded text-[11px] font-medium transition-all ${
-                      currentSetup.city.toLowerCase() === c
+                    onClick={() => handleCityChange(id)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all ${
+                      currentSetup.city.toLowerCase() === id
                         ? "bg-gray-900 text-white"
                         : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
                     }`}
                   >
-                    {c.charAt(0).toUpperCase() + c.slice(1)}
+                    {label}
                   </button>
                 ))}
               </div>
@@ -163,16 +231,40 @@ export default function IntakeModal({
 
           {/* Travelers Grid */}
           <div className="space-y-2.5">
-            <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wide">
-              Traveler Profiles ({currentSetup.travelers.length} Members)
-            </h4>
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+                Traveler Profiles ({currentSetup.travelers.length} Members)
+              </h4>
+              {currentSetup.travelers.length < 8 && (
+                <button
+                  type="button"
+                  onClick={handleAddTraveler}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-semibold transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Traveler</span>
+                </button>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {currentSetup.travelers.map((t, idx) => (
-                <div key={idx} className="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-2 text-xs">
+                <div key={idx} className="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-2 text-xs relative">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-gray-900">{t.name}</span>
-                    <span className="text-[10px] text-gray-400">Traveler #{idx + 1}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-gray-900">{t.name}</span>
+                      <span className="text-[10px] text-gray-400">Traveler #{idx + 1}</span>
+                    </div>
+                    {currentSetup.travelers.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTraveler(idx)}
+                        className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                        title="Remove traveler"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">

@@ -121,11 +121,7 @@ def venues_for(setup: dict) -> dict[str, dict]:
             if live_vs:
                 vs = copy.deepcopy(live_vs)
         except Exception:
-            pass
-            
-    # Final fallback if still empty: fallback to taipei so engine never crashes
-    if not vs:
-        vs = {k: copy.deepcopy(v) for k, v in VENUES.items() if v.get("city") == "taipei"}
+            vs = {}
 
     for vid, patch in (setup.get("venue_overrides") or {}).items():
         vs.setdefault(vid, {}).update(patch)

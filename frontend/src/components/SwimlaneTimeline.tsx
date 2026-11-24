@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { Lock, Clock, Footprints, Users, MapPin, CheckCheck, Sun, CloudRain } from "lucide-react";
+import { Lock, Clock, Footprints, Users, MapPin, CheckCheck, Sun, CloudRain, Plus, MessageSquare } from "lucide-react";
 import { ItineraryItem, PlanOutput, Traveler } from "../types";
-import { getGroupColor, getVenue } from "../lib/venues";
+import { getVenue } from "../lib/venues";
 
 interface SwimlaneTimelineProps {
   plan: PlanOutput | null;
@@ -12,6 +12,7 @@ interface SwimlaneTimelineProps {
   onSelectVenue: (venueId: string) => void;
   replanModifiedVenueIds: string[];
   venuesMap?: Record<string, any>;
+  onOpenAddStop?: () => void;
 }
 
 export default function SwimlaneTimeline({
@@ -21,18 +22,74 @@ export default function SwimlaneTimeline({
   onSelectVenue,
   replanModifiedVenueIds,
   venuesMap,
+  onOpenAddStop,
 }: SwimlaneTimelineProps) {
   if (!plan || !plan.itinerary || plan.itinerary.length === 0) {
     return null;
   }
 
   const items = plan.itinerary;
-  const sharedItems = items.filter((it) => it.members.length >= 4 || it.venue_id === "din_tai_fung_101");
-  const splitItems = items.filter((it) => it.members.length < 4 && it.venue_id !== "din_tai_fung_101");
+  const totalTravelers = travelers.length || 1;
 
-  const hikingItems = splitItems.filter((it) => it.members.includes("Alice") || it.members.includes("Bob"));
-  const artItems = splitItems.filter((it) => it.members.includes("Carol") || it.members.includes("Dave"));
-  const cafeItems = splitItems.filter((it) => it.members.includes("Eve") || it.members.includes("Frank"));
+  // 1. Identify shared activities vs. split sub-tracks
+  const isShared = (it: ItineraryItem) => {
+    if (it.venue_id === "din_tai_fung_101") return true;
+    if (it.members.length >= totalTravelers) return true;
+    return false;
+  };
+
+  const sharedItemsRaw = items.filter(isShared);
+  const splitItems = items.filter((it) => !isShared(it));
+
+  // 2. Strict deduplication of shared items by (venue_id, start, end)
+  const sharedItems: ItineraryItem[] = [];
+  const seenSharedKeys = new Set<string>();
+  for (const it of sharedItemsRaw) {
+    const key = `${it.venue_id}_${it.start}_${it.end}`;
+    if (!seenSharedKeys.has(key)) {
+      seenSharedKeys.add(key);
+      sharedItems.push(it);
+    }
+  }
+
+  // 3. Dynamic grouping of split items into distinct sub-tracks
+  const colors: ("emerald" | "indigo" | "amber" | "rose")[] = ["emerald", "indigo", "amber", "rose"];
+  const memberGroupMap = new Map<string, ItineraryItem[]>();
+  for (const it of splitItems) {
+    const groupKey = [...it.members].sort().join(", ");
+    if (!memberGroupMap.has(groupKey)) {
+      memberGroupMap.set(groupKey, []);
+    }
+    memberGroupMap.get(groupKey)!.push(it);
+  }
+
+  const trackGroups: {
+    label: string;
+    members: string[];
+    items: ItineraryItem[];
+    color: "emerald" | "indigo" | "amber" | "rose";
+  }[] = [];
+
+  let colorIdx = 0;
+  memberGroupMap.forEach((groupItems, groupKey) => {
+    const groupMembers = groupKey.split(", ");
+    let label = `Track ${trackGroups.length + 1}`;
+    if (groupMembers.includes("Alice") || groupMembers.includes("Bob")) {
+      label = "Hiking Track";
+    } else if (groupMembers.includes("Carol") || groupMembers.includes("Dave")) {
+      label = "Art Track";
+    } else if (groupMembers.includes("Eve") || groupMembers.includes("Frank")) {
+      label = "Cafe Track";
+    }
+
+    trackGroups.push({
+      label,
+      members: groupMembers,
+      items: groupItems,
+      color: colors[colorIdx % colors.length],
+    });
+    colorIdx++;
+  });
 
   const calculateSpending = (name: string) => {
     let spent = 0;
@@ -47,7 +104,29 @@ export default function SwimlaneTimeline({
 
   return (
     <div className="space-y-6">
-      {/* 1. Slim Traveler Limit & Budget Tracker */}
+      {/* 1. Header with Add Custom Stop Button */}
+      <div className="flex items-center justify-between pb-1 border-b border-gray-200">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-gray-900 uppercase tracking-wide">
+            Multi-Track Timeline
+          </span>
+          <span className="text-[11px] text-gray-500 font-mono">
+            ({items.length} Stops Planned)
+          </span>
+        </div>
+        {onOpenAddStop && (
+          <button
+            type="button"
+            onClick={onOpenAddStop}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold shadow-xs transition-all active:scale-[0.98]"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Custom Stop</span>
+          </button>
+        )}
+      </div>
+
+      {/* 2. Traveler Limit & Budget Tracker */}
       <div className="minimal-panel rounded-xl p-3.5 space-y-2.5">
         <div className="flex items-center justify-between text-xs text-gray-500">
           <span className="font-semibold text-gray-800 flex items-center gap-1.5">
@@ -55,7 +134,7 @@ export default function SwimlaneTimeline({
             <span>Group Budget & Fatigue Monitor</span>
           </span>
           <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-            All 6 Within Budget
+            All {totalTravelers} Within Budget
           </span>
         </div>
 
@@ -89,7 +168,7 @@ export default function SwimlaneTimeline({
         </div>
       </div>
 
-      {/* 2. Morning Departure Card */}
+      {/* 3. Morning Departure Card */}
       <div
         onClick={() => onSelectVenue("hotel_ximen")}
         className="minimal-card rounded-xl p-3.5 cursor-pointer flex items-center justify-between hover:border-gray-400"
@@ -101,110 +180,84 @@ export default function SwimlaneTimeline({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono font-bold text-gray-800">09:00</span>
-              <span className="text-sm font-semibold text-gray-900">Hotel Departure (Ximending)</span>
+              <span className="text-sm font-semibold text-gray-900">Hotel Departure</span>
               <span className="text-[10px] px-1.5 py-0.2 rounded bg-gray-100 text-gray-600 border border-gray-200">
-                All 6 Travelers
+                All {totalTravelers} Travelers
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-0.5">
-              Trip kickoff; groups split into 3 independent theme tracks.
+              Trip kickoff; groups proceed to synchronized theme routes.
             </p>
           </div>
         </div>
         <span className="text-xs text-gray-400 font-mono hidden sm:inline">Taxi ~15 min</span>
       </div>
 
-      {/* 3. Three Split Track Columns */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-        {/* Track 1: Hiking (Emerald) */}
-        <div className="space-y-2.5">
-          <div className="pb-1.5 border-b-2 border-emerald-600 flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-600" />
-              <h4 className="text-xs font-bold uppercase tracking-wide text-gray-900">
-                Hiking Track
-              </h4>
-            </div>
-            <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
-              Alice, Bob
-            </span>
-          </div>
+      {/* 4. Split Track Columns */}
+      {trackGroups.length > 0 && (
+        <div
+          className={`grid grid-cols-1 ${
+            trackGroups.length === 1
+              ? "md:grid-cols-1"
+              : trackGroups.length === 2
+              ? "md:grid-cols-2"
+              : "md:grid-cols-3"
+          } gap-3.5`}
+        >
+          {trackGroups.map((group, gIdx) => {
+            const borderColors = {
+              emerald: "border-emerald-600",
+              indigo: "border-indigo-600",
+              amber: "border-amber-600",
+              rose: "border-rose-600",
+            };
+            const dotColors = {
+              emerald: "bg-emerald-600",
+              indigo: "bg-indigo-600",
+              amber: "bg-amber-600",
+              rose: "bg-rose-600",
+            };
+            const badgeColors = {
+              emerald: "text-emerald-700 bg-emerald-50",
+              indigo: "text-indigo-700 bg-indigo-50",
+              amber: "text-amber-700 bg-amber-50",
+              rose: "text-rose-700 bg-rose-50",
+            };
 
-          <div className="space-y-2">
-            {hikingItems.map((item, idx) => (
-              <TimelineCard
-                key={idx}
-                item={item}
-                isSelected={selectedVenueId === item.venue_id}
-                onSelect={() => onSelectVenue(item.venue_id)}
-                isModified={replanModifiedVenueIds.includes(item.venue_id)}
-                venuesMap={venuesMap}
-                accentColor="emerald"
-              />
-            ))}
-          </div>
+            return (
+              <div key={gIdx} className="space-y-2.5">
+                <div className={`pb-1.5 border-b-2 ${borderColors[group.color]} flex items-center justify-between`}>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${dotColors[group.color]}`} />
+                    <h4 className="text-xs font-bold uppercase tracking-wide text-gray-900">
+                      {group.label}
+                    </h4>
+                  </div>
+                  <span className={`text-[10px] font-medium px-1.5 py-0.2 rounded ${badgeColors[group.color]}`}>
+                    {group.members.join(", ")}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {group.items.map((item, idx) => (
+                    <TimelineCard
+                      key={idx}
+                      item={item}
+                      isSelected={selectedVenueId === item.venue_id}
+                      onSelect={() => onSelectVenue(item.venue_id)}
+                      isModified={replanModifiedVenueIds.includes(item.venue_id)}
+                      venuesMap={venuesMap}
+                      accentColor={group.color}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
+      )}
 
-        {/* Track 2: Art & Design (Indigo) */}
-        <div className="space-y-2.5">
-          <div className="pb-1.5 border-b-2 border-indigo-600 flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-indigo-600" />
-              <h4 className="text-xs font-bold uppercase tracking-wide text-gray-900">
-                Art Track
-              </h4>
-            </div>
-            <span className="text-[10px] font-medium text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded">
-              Carol, Dave
-            </span>
-          </div>
-
-          <div className="space-y-2">
-            {artItems.map((item, idx) => (
-              <TimelineCard
-                key={idx}
-                item={item}
-                isSelected={selectedVenueId === item.venue_id}
-                onSelect={() => onSelectVenue(item.venue_id)}
-                isModified={replanModifiedVenueIds.includes(item.venue_id)}
-                venuesMap={venuesMap}
-                accentColor="indigo"
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Track 3: Cafe & Culture (Amber) */}
-        <div className="space-y-2.5">
-          <div className="pb-1.5 border-b-2 border-amber-600 flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-600" />
-              <h4 className="text-xs font-bold uppercase tracking-wide text-gray-900">
-                Cafe Track
-              </h4>
-            </div>
-            <span className="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded">
-              Eve, Frank
-            </span>
-          </div>
-
-          <div className="space-y-2">
-            {cafeItems.map((item, idx) => (
-              <TimelineCard
-                key={idx}
-                item={item}
-                isSelected={selectedVenueId === item.venue_id}
-                onSelect={() => onSelectVenue(item.venue_id)}
-                isModified={replanModifiedVenueIds.includes(item.venue_id)}
-                venuesMap={venuesMap}
-                accentColor="amber"
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 4. 18:15 Horizontal Regroup Convergence Divider */}
+      {/* 5. Regroup Convergence Divider */}
       <div className="relative my-4 flex items-center justify-center">
         <div className="absolute inset-0 flex items-center" aria-hidden="true">
           <div className="w-full border-t border-dashed border-gray-300" />
@@ -215,10 +268,11 @@ export default function SwimlaneTimeline({
         </div>
       </div>
 
-      {/* 5. 18:30 Dinner Hard Anchor Card */}
+      {/* 6. Shared Hard Anchor Dinner Card (Exactly ONE card) */}
       {sharedItems.map((item, idx) => {
         const v = getVenue(item.venue_id, venuesMap);
-        const isAnchor = item.venue_id === "din_tai_fung_101";
+        const isAnchor = item.venue_id === "din_tai_fung_101" || item.venue_id.includes("chartier") || item.venue_id.includes("gonpachi") || item.venue_id.includes("katz") || item.venue_id.includes("ivars");
+        const isModified = replanModifiedVenueIds.includes(item.venue_id);
 
         return (
           <div
@@ -227,11 +281,13 @@ export default function SwimlaneTimeline({
             className={`rounded-xl p-4 cursor-pointer transition-all ${
               isAnchor
                 ? "border-2 border-gray-900 bg-white shadow-sm hover:border-black"
+                : isModified
+                ? "replan-soft-highlight"
                 : "minimal-card hover:border-gray-400"
             }`}
           >
             <div className="flex items-start sm:items-center justify-between gap-3 mb-1.5">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-mono font-bold text-gray-900">
                   {item.start} - {item.end}
                 </span>
@@ -244,18 +300,29 @@ export default function SwimlaneTimeline({
                     Locked Booking (Hard Anchor)
                   </span>
                 )}
+                {isModified && (
+                  <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500 text-white">
+                    MODIFIED
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <span className="font-semibold text-gray-800">NT$ {v.cost} / person</span>
                 <span>•</span>
-                <span>All 6 Members</span>
+                <span>All {totalTravelers} Members</span>
               </div>
             </div>
 
             <p className="text-xs text-gray-600 line-clamp-1">
               {v.description}
             </p>
+
+            {item.note && (
+              <p className="text-[11px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded mt-1.5 inline-block">
+                Note: {item.note}
+              </p>
+            )}
           </div>
         );
       })}
@@ -277,7 +344,7 @@ function TimelineCard({
   onSelect: () => void;
   isModified?: boolean;
   venuesMap?: Record<string, any>;
-  accentColor: "emerald" | "indigo" | "amber";
+  accentColor: "emerald" | "indigo" | "amber" | "rose";
 }) {
   const v = getVenue(item.venue_id, venuesMap);
 
@@ -301,7 +368,7 @@ function TimelineCard({
         <div className="flex items-center gap-1">
           {isModified && (
             <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500 text-white">
-              REPLACED
+              MODIFIED
             </span>
           )}
           <span className="text-[10px] font-medium text-gray-500 flex items-center gap-0.5">
@@ -312,7 +379,7 @@ function TimelineCard({
       </div>
 
       {/* 2. Venue Name */}
-      <h5 className="text-xs font-bold text-gray-900 truncate mb-1.5">
+      <h5 className="text-xs font-bold text-gray-900 truncate mb-1">
         {v.name}
       </h5>
 
@@ -325,6 +392,13 @@ function TimelineCard({
           NT$ {v.cost}
         </span>
       </div>
+
+      {item.note && (
+        <div className="mt-1 flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50/70 px-1.5 py-0.5 rounded truncate">
+          <MessageSquare className="w-2.5 h-2.5" />
+          <span className="truncate">{item.note}</span>
+        </div>
+      )}
     </div>
   );
 }

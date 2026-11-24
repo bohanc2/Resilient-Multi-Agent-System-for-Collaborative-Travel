@@ -123,9 +123,11 @@ def _solve_group(group, setup, n_groups):
         vids = {it["venue_id"] for it in items}
         if not must <= vids:
             return False
+        all_city_tags = {tag for v in venues.values() for tag in v.get("tags", [])}
         for t in travelers:
             if req.get("interest_coverage") and t.get("interests"):
-                if not any(set(venues[it["venue_id"]]["tags"]) & set(t["interests"]) for it in free):
+                matching_city_interests = set(t["interests"]) & all_city_tags
+                if matching_city_interests and not any(set(venues[it["venue_id"]]["tags"]) & matching_city_interests for it in free):
                     return False
             if sum(venues[it["venue_id"]]["cost"] for it in items) > t.get("budget", 10 ** 9):
                 return False
@@ -186,6 +188,23 @@ def _solve_group(group, setup, n_groups):
     return dfs(start_loc, to_min(setup.get("day_start", "09:00")), 0, [], set())
 
 
+def deduplicate_itinerary(itinerary: list[dict]) -> list[dict]:
+    """Merge items having identical (venue_id, start, end), combining member lists into a single shared stop."""
+    merged: dict[tuple[str, str, str], dict] = {}
+    order: list[tuple[str, str, str]] = []
+    for it in itinerary:
+        key = (it["venue_id"], it["start"], it["end"])
+        if key not in merged:
+            merged[key] = dict(it)
+            merged[key]["members"] = list(it.get("members", []))
+            order.append(key)
+        else:
+            m = set(merged[key]["members"])
+            m.update(it.get("members", []))
+            merged[key]["members"] = sorted(list(m))
+    return [merged[k] for k in order]
+
+
 def solve(setup: dict):
     """Return a valid plan or None."""
     venues = venues_for(setup)
@@ -198,8 +217,9 @@ def solve(setup: dict):
                 break
             parts.extend(r)
         else:
+            raw_itinerary = [{k: v for k, v in it.items() if k != "anchor"} for it in parts]
             plan = {"feasible": True, "reason": "reference solution",
-                    "itinerary": [{k: v for k, v in it.items() if k != "anchor"} for it in parts]}
+                    "itinerary": deduplicate_itinerary(raw_itinerary)}
             if not check_plan(plan, setup):
                 return plan
     return None

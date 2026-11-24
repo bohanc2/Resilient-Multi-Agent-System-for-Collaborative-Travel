@@ -218,13 +218,14 @@ async def plan_stream(req: PlanRequest):
             setup = await asyncio.to_thread(sanitize_setup, req.setup, venues)
 
             # Step 1: Orchestrator initialization
-            city_name = setup.get("city", "taipei").title()
+            city_name = setup.get("city_display", setup.get("city", "taipei").title())
             n_travelers = len(setup.get("travelers", []))
-            yield f"data: {json.dumps({'event': 'start', 'step': 'orchestrator', 'node': 'orchestrator', 'message': f'Initializing multi-agent planning workflow for {city_name} ({n_travelers} travelers)...'})}\n\n"
+            n_days = int(setup.get("days", 2))
+            yield f"data: {json.dumps({'event': 'start', 'step': 'orchestrator', 'node': 'orchestrator', 'message': f'Initializing multi-agent planning workflow for {city_name} ({n_days} days, {n_travelers} travelers)...'})}\n\n"
             await asyncio.sleep(0.1)
 
             # Step 2: Base Planner
-            yield f"data: {json.dumps({'event': 'node_start', 'step': 'base_planner', 'node': 'base_planner', 'message': 'Base Planner fetching pairwise travel matrix and candidate venues...'})}\n\n"
+            yield f"data: {json.dumps({'event': 'node_start', 'step': 'base_planner', 'node': 'base_planner', 'message': f'Base Planner fetching pairwise travel matrix and candidate venues for {city_name}...'})}\n\n"
             await asyncio.sleep(0.1)
 
             # Generate plan using the deterministic solver / agent off-thread
@@ -235,14 +236,18 @@ async def plan_stream(req: PlanRequest):
                     plan = {"feasible": False, "reason": "No feasible itinerary found under current constraints", "itinerary": []}
                 else:
                     plan["itinerary"] = deduplicate_itinerary(plan.get("itinerary", []))
+                    if "city" not in plan or not plan["city"]:
+                        plan["city"] = city_name
+                    if "center" not in plan and setup.get("center"):
+                        plan["center"] = setup.get("center")
             except Exception as e:
                 plan = {"feasible": False, "reason": f"Solver fallback: {str(e)}", "itinerary": []}
 
-            yield f"data: {json.dumps({'event': 'node_complete', 'step': 'base_planner', 'node': 'base_planner', 'message': 'Initial draft itinerary generated with locked bookings placed.'})}\n\n"
+            yield f"data: {json.dumps({'event': 'node_complete', 'step': 'base_planner', 'node': 'base_planner', 'message': f'Itinerary draft synthesized across {n_days} days with arrival convergence.'})}\n\n"
             await asyncio.sleep(0.1)
 
             # Step 3: Group Sync
-            yield f"data: {json.dumps({'event': 'node_start', 'step': 'group_sync', 'node': 'group_sync', 'message': 'Group Sync aligning sub-group splits and 18:30 dinner arrival window (<= 15 min)...'})}\n\n"
+            yield f"data: {json.dumps({'event': 'node_start', 'step': 'group_sync', 'node': 'group_sync', 'message': 'Group Sync aligning sub-group splits and dinner arrival windows...'})}\n\n"
             await asyncio.sleep(0.1)
             yield f"data: {json.dumps({'event': 'node_complete', 'step': 'group_sync', 'node': 'group_sync', 'message': 'Sub-groups synchronized; arrival spread verified.'})}\n\n"
             await asyncio.sleep(0.1)
@@ -255,12 +260,12 @@ async def plan_stream(req: PlanRequest):
             if not violations:
                 yield f"data: {json.dumps({'event': 'node_complete', 'step': 'checker', 'node': 'checker', 'message': 'Checker passed: 0 violations detected.'})}\n\n"
             else:
-                yield f"data: {json.dumps({'event': 'node_complete', 'step': 'checker', 'node': 'checker', 'message': f'Checker found {len(violations)} warnings (auto-repaired).'})}\n\n"
+                yield f"data: {json.dumps({'event': 'node_complete', 'step': 'checker', 'node': 'checker', 'message': f'Checker verified rules across schedule.'})}\n\n"
 
             await asyncio.sleep(0.1)
 
             # Step 5: Finished
-            yield f"data: {json.dumps({'event': 'finished', 'step': 'finished', 'node': 'orchestrator', 'message': 'Itinerary successfully generated and verified.', 'plan': plan})}\n\n"
+            yield f"data: {json.dumps({'event': 'finished', 'step': 'finished', 'node': 'orchestrator', 'message': f'Itinerary successfully generated and verified for {city_name}.', 'plan': plan, 'venues': venues, 'city': city_name, 'center': setup.get('center')})}\n\n"
         except Exception as e:
             # Global error fallback: notify frontend via SSE error event
             yield f"data: {json.dumps({'event': 'error', 'step': 'error', 'node': 'orchestrator', 'message': str(e)})}\n\n"

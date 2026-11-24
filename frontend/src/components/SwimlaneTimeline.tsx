@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { Lock, Clock, Footprints, Users, MapPin, CheckCheck, Sun, CloudRain, Plus, MessageSquare } from "lucide-react";
+import React, { useState } from "react";
+import { Lock, Clock, Footprints, Users, MapPin, CheckCheck, Sun, CloudRain, Plus, MessageSquare, Calendar } from "lucide-react";
 import { ItineraryItem, PlanOutput, Traveler } from "../types";
 import { getVenue } from "../lib/venues";
 
@@ -13,6 +13,8 @@ interface SwimlaneTimelineProps {
   replanModifiedVenueIds: string[];
   venuesMap?: Record<string, any>;
   onOpenAddStop?: () => void;
+  activeDay?: number;
+  onDayChange?: (day: number) => void;
 }
 
 export default function SwimlaneTimeline({
@@ -23,23 +25,38 @@ export default function SwimlaneTimeline({
   replanModifiedVenueIds,
   venuesMap,
   onOpenAddStop,
+  activeDay: propActiveDay,
+  onDayChange,
 }: SwimlaneTimelineProps) {
+  const [internalDay, setInternalDay] = useState(1);
+  const activeDay = propActiveDay !== undefined ? propActiveDay : internalDay;
+
+  const handleSetActiveDay = (d: number) => {
+    setInternalDay(d);
+    if (onDayChange) onDayChange(d);
+  };
+
   if (!plan || !plan.itinerary || plan.itinerary.length === 0) {
     return null;
   }
 
-  const items = plan.itinerary;
+  const allItems = plan.itinerary;
+  const maxDays = Math.max(1, ...allItems.map((it) => it.day || 1));
   const totalTravelers = travelers.length || 1;
 
-  // 1. Identify shared activities vs. split sub-tracks
+  // Filter items for the selected day
+  const dayItems = allItems.filter((it) => (it.day || 1) === activeDay);
+
+  // 1. Identify shared activities vs. split sub-tracks for the current day
   const isShared = (it: ItineraryItem) => {
-    if (it.venue_id === "din_tai_fung_101") return true;
     if (it.members.length >= totalTravelers) return true;
+    const v = getVenue(it.venue_id, venuesMap);
+    if (v.tags?.includes("dining") && it.start >= "18:00") return true;
     return false;
   };
 
-  const sharedItemsRaw = items.filter(isShared);
-  const splitItems = items.filter((it) => !isShared(it));
+  const sharedItemsRaw = dayItems.filter(isShared);
+  const splitItems = dayItems.filter((it) => !isShared(it));
 
   // 2. Strict deduplication of shared items by (venue_id, start, end)
   const sharedItems: ItineraryItem[] = [];
@@ -74,14 +91,6 @@ export default function SwimlaneTimeline({
   memberGroupMap.forEach((groupItems, groupKey) => {
     const groupMembers = groupKey.split(", ");
     let label = `Track ${trackGroups.length + 1}`;
-    if (groupMembers.includes("Alice") || groupMembers.includes("Bob")) {
-      label = "Hiking Track";
-    } else if (groupMembers.includes("Carol") || groupMembers.includes("Dave")) {
-      label = "Art Track";
-    } else if (groupMembers.includes("Eve") || groupMembers.includes("Frank")) {
-      label = "Cafe Track";
-    }
-
     trackGroups.push({
       label,
       members: groupMembers,
@@ -93,7 +102,7 @@ export default function SwimlaneTimeline({
 
   const calculateSpending = (name: string) => {
     let spent = 0;
-    items.forEach((it) => {
+    allItems.forEach((it) => {
       if (it.members.includes(name)) {
         const v = getVenue(it.venue_id, venuesMap);
         spent += v.cost;
@@ -102,8 +111,16 @@ export default function SwimlaneTimeline({
     return spent;
   };
 
+  // Find local hotel for the morning departure
+  const firstItem = dayItems[0];
+  const hotelId =
+    firstItem?.transit_from_prev?.from_venue_id ||
+    Object.keys(venuesMap || {}).find((k) => k.includes("hotel")) ||
+    "hotel";
+  const hotelVenue = getVenue(hotelId, venuesMap);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* 1. Header with Add Custom Stop Button */}
       <div className="flex items-center justify-between pb-1 border-b border-gray-200">
         <div className="flex items-center gap-2">
@@ -111,7 +128,7 @@ export default function SwimlaneTimeline({
             Multi-Track Timeline
           </span>
           <span className="text-[11px] text-gray-500 font-mono">
-            ({items.length} Stops Planned)
+            ({allItems.length} Total Stops across {maxDays} {maxDays === 1 ? "Day" : "Days"})
           </span>
         </div>
         {onOpenAddStop && (
@@ -126,7 +143,32 @@ export default function SwimlaneTimeline({
         )}
       </div>
 
-      {/* 2. Traveler Limit & Budget Tracker */}
+      {/* 2. Day Switcher Tabs */}
+      {maxDays > 1 && (
+        <div className="flex items-center justify-between p-1 bg-gray-100 rounded-xl border border-gray-200">
+          <div className="flex items-center gap-1">
+            {Array.from({ length: maxDays }, (_, i) => i + 1).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => handleSetActiveDay(d)}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  activeDay === d
+                    ? "bg-white text-gray-900 shadow-xs"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/60"
+                }`}
+              >
+                Day {d}
+              </button>
+            ))}
+          </div>
+          <span className="text-[11px] font-medium text-gray-500 px-2 font-mono">
+            Day {activeDay}: {dayItems.length} activities
+          </span>
+        </div>
+      )}
+
+      {/* 3. Traveler Limit & Budget Tracker */}
       <div className="minimal-panel rounded-xl p-3.5 space-y-2.5">
         <div className="flex items-center justify-between text-xs text-gray-500">
           <span className="font-semibold text-gray-800 flex items-center gap-1.5">
@@ -149,7 +191,9 @@ export default function SwimlaneTimeline({
                 className="p-2 rounded-lg bg-gray-50 border border-gray-100 space-y-1"
               >
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-bold text-gray-800">{t.name}</span>
+                  <span className="font-bold text-gray-800 truncate max-w-[80px]" title={t.name}>
+                    {t.name}
+                  </span>
                   <span className="text-gray-500 font-mono">
                     ${spent}/${t.budget}
                   </span>
@@ -168,9 +212,9 @@ export default function SwimlaneTimeline({
         </div>
       </div>
 
-      {/* 3. Morning Departure Card */}
+      {/* 4. Morning Departure Card */}
       <div
-        onClick={() => onSelectVenue("hotel_ximen")}
+        onClick={() => onSelectVenue(hotelId)}
         className="minimal-card rounded-xl p-3.5 cursor-pointer flex items-center justify-between hover:border-gray-400"
       >
         <div className="flex items-center gap-3">
@@ -179,21 +223,27 @@ export default function SwimlaneTimeline({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-mono font-bold text-gray-800">09:00</span>
-              <span className="text-sm font-semibold text-gray-900">Hotel Departure</span>
+              <span className="text-xs font-mono font-bold text-gray-800">09:30</span>
+              <span className="text-sm font-semibold text-gray-900">
+                {hotelVenue.name || "Hotel Departure"}
+              </span>
               <span className="text-[10px] px-1.5 py-0.2 rounded bg-gray-100 text-gray-600 border border-gray-200">
                 All {totalTravelers} Travelers
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-0.5">
-              Trip kickoff; groups proceed to synchronized theme routes.
+              Day {activeDay} departure; groups start synchronized sightseeing.
             </p>
           </div>
         </div>
-        <span className="text-xs text-gray-400 font-mono hidden sm:inline">Taxi ~15 min</span>
+        <span className="text-xs text-gray-400 font-mono hidden sm:inline">
+          {firstItem?.transit_from_prev
+            ? `${firstItem.transit_from_prev.mode === "walk" ? "Walk" : "Drive"} ~${firstItem.transit_from_prev.duration_mins} min`
+            : "Drive ~10 min"}
+        </span>
       </div>
 
-      {/* 4. Split Track Columns */}
+      {/* 5. Split Track Columns */}
       {trackGroups.length > 0 && (
         <div
           className={`grid grid-cols-1 ${
@@ -257,7 +307,7 @@ export default function SwimlaneTimeline({
         </div>
       )}
 
-      {/* 5. Regroup Convergence Divider */}
+      {/* 6. Regroup Convergence Divider */}
       <div className="relative my-4 flex items-center justify-center">
         <div className="absolute inset-0 flex items-center" aria-hidden="true">
           <div className="w-full border-t border-dashed border-gray-300" />
@@ -268,61 +318,75 @@ export default function SwimlaneTimeline({
         </div>
       </div>
 
-      {/* 6. Shared Hard Anchor Dinner Card (Exactly ONE card) */}
+      {/* 7. Shared Evening Convergence / Dinner Card */}
       {sharedItems.map((item, idx) => {
         const v = getVenue(item.venue_id, venuesMap);
-        const isAnchor = item.venue_id === "din_tai_fung_101" || item.venue_id.includes("chartier") || item.venue_id.includes("gonpachi") || item.venue_id.includes("katz") || item.venue_id.includes("ivars");
+        const isAnchor = Boolean(item.is_custom || item.venue_id.includes("dinner") || item.start >= "18:00");
         const isModified = replanModifiedVenueIds.includes(item.venue_id);
+        const transit = item.transit_from_prev;
 
         return (
-          <div
-            key={idx}
-            onClick={() => onSelectVenue(item.venue_id)}
-            className={`rounded-xl p-4 cursor-pointer transition-all ${
-              isAnchor
-                ? "border-2 border-gray-900 bg-white shadow-sm hover:border-black"
-                : isModified
-                ? "replan-soft-highlight"
-                : "minimal-card hover:border-gray-400"
-            }`}
-          >
-            <div className="flex items-start sm:items-center justify-between gap-3 mb-1.5">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-mono font-bold text-gray-900">
-                  {item.start} - {item.end}
+          <div key={idx} className="space-y-1">
+            {transit && (
+              <div className="flex items-center gap-1.5 px-2 py-0.5 text-[10px] text-gray-500 font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 shadow-2xs text-gray-700 font-semibold flex items-center gap-1">
+                  {transit.mode === "walk" ? "🚶 Walk" : "🚕 Drive"} · {transit.duration_mins} min
                 </span>
-                <h4 className="text-sm font-bold text-gray-900">
-                  {v.name}
-                </h4>
-                {isAnchor && (
-                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-900 text-white text-[10px] font-bold">
-                    <Lock className="w-3 h-3 text-amber-400" />
-                    Locked Booking (Hard Anchor)
-                  </span>
-                )}
-                {isModified && (
-                  <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500 text-white">
-                    MODIFIED
-                  </span>
-                )}
+                <span className="text-[10px] text-gray-400 truncate">
+                  reunion transit from {transit.from_venue_name || "afternoon stops"}
+                </span>
               </div>
-
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span className="font-semibold text-gray-800">NT$ {v.cost} / person</span>
-                <span>•</span>
-                <span>All {totalTravelers} Members</span>
-              </div>
-            </div>
-
-            <p className="text-xs text-gray-600 line-clamp-1">
-              {v.description}
-            </p>
-
-            {item.note && (
-              <p className="text-[11px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded mt-1.5 inline-block">
-                Note: {item.note}
-              </p>
             )}
+
+            <div
+              onClick={() => onSelectVenue(item.venue_id)}
+              className={`rounded-xl p-4 cursor-pointer transition-all ${
+                isAnchor
+                  ? "border-2 border-gray-900 bg-white shadow-sm hover:border-black"
+                  : isModified
+                  ? "replan-soft-highlight"
+                  : "minimal-card hover:border-gray-400"
+              }`}
+            >
+              <div className="flex items-start sm:items-center justify-between gap-3 mb-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-mono font-bold text-gray-900">
+                    {item.start} - {item.end}
+                  </span>
+                  <h4 className="text-sm font-bold text-gray-900">
+                    {v.name}
+                  </h4>
+                  {isAnchor && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-900 text-white text-[10px] font-bold">
+                      <Lock className="w-3 h-3 text-amber-400" />
+                      Evening Dinner Convergence
+                    </span>
+                  )}
+                  {isModified && (
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500 text-white">
+                      MODIFIED
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <span className="font-semibold text-gray-800">${v.cost} / person</span>
+                  <span>•</span>
+                  <span>All {totalTravelers} Members</span>
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-600 line-clamp-1">
+                {v.description}
+              </p>
+
+              {item.note && (
+                <p className="text-[11px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded mt-1.5 inline-block">
+                  Note: {item.note}
+                </p>
+              )}
+            </div>
           </div>
         );
       })}
@@ -347,58 +411,75 @@ function TimelineCard({
   accentColor: "emerald" | "indigo" | "amber" | "rose";
 }) {
   const v = getVenue(item.venue_id, venuesMap);
+  const transit = item.transit_from_prev;
 
   return (
-    <div
-      onClick={onSelect}
-      className={`minimal-card rounded-lg p-2.5 cursor-pointer select-none transition-all ${
-        isModified
-          ? "replan-soft-highlight"
-          : isSelected
-          ? "border-gray-900 ring-1 ring-gray-900 shadow-sm"
-          : "hover:border-gray-300"
-      }`}
-    >
-      {/* 1. Time Interval & Environment Tag */}
-      <div className="flex items-center justify-between gap-1 mb-1">
-        <span className="text-[11px] font-mono text-gray-500 flex items-center gap-1">
-          <Clock className="w-3 h-3 text-gray-400" />
-          {item.start} - {item.end}
-        </span>
-        <div className="flex items-center gap-1">
-          {isModified && (
-            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500 text-white">
-              MODIFIED
-            </span>
-          )}
-          <span className="text-[10px] font-medium text-gray-500 flex items-center gap-0.5">
-            {v.indoor ? <Sun className="w-2.5 h-2.5 text-gray-400" /> : <CloudRain className="w-2.5 h-2.5 text-gray-400" />}
-            {v.indoor ? "Indoor" : "Outdoor"}
+    <div className="space-y-1">
+      {/* Transit Connector Capsule */}
+      {transit && (
+        <div className="flex items-center gap-1.5 px-1 py-0.5 text-[10px] text-gray-500 font-mono">
+          <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+          <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 shadow-2xs text-gray-700 font-semibold flex items-center gap-1">
+            {transit.mode === "walk" ? "🚶 Walk" : "🚕 Drive"} · {transit.duration_mins} min
+          </span>
+          <span className="text-[10px] text-gray-400 truncate max-w-[120px]">
+            from {transit.from_venue_name || "previous"}
           </span>
         </div>
-      </div>
-
-      {/* 2. Venue Name */}
-      <h5 className="text-xs font-bold text-gray-900 truncate mb-1">
-        {v.name}
-      </h5>
-
-      {/* 3. Member Tag & Detail Hint */}
-      <div className="flex items-center justify-between text-[10px] text-gray-400 pt-1 border-t border-gray-100">
-        <span className="font-medium text-gray-600 truncate max-w-[120px]">
-          {item.members.join(", ")}
-        </span>
-        <span className="hover:text-gray-900 text-[10px]">
-          NT$ {v.cost}
-        </span>
-      </div>
-
-      {item.note && (
-        <div className="mt-1 flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50/70 px-1.5 py-0.5 rounded truncate">
-          <MessageSquare className="w-2.5 h-2.5" />
-          <span className="truncate">{item.note}</span>
-        </div>
       )}
+
+      {/* Main Activity Card */}
+      <div
+        onClick={onSelect}
+        className={`minimal-card rounded-lg p-2.5 cursor-pointer select-none transition-all ${
+          isModified
+            ? "replan-soft-highlight"
+            : isSelected
+            ? "border-gray-900 ring-1 ring-gray-900 shadow-sm"
+            : "hover:border-gray-300"
+        }`}
+      >
+        {/* 1. Time Interval & Setting */}
+        <div className="flex items-center justify-between gap-1 mb-1">
+          <span className="text-[11px] font-mono text-gray-500 flex items-center gap-1">
+            <Clock className="w-3 h-3 text-gray-400" />
+            {item.start} - {item.end}
+          </span>
+          <div className="flex items-center gap-1">
+            {isModified && (
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500 text-white">
+                MODIFIED
+              </span>
+            )}
+            <span className="text-[10px] font-medium text-gray-500 flex items-center gap-0.5">
+              {v.indoor ? <Sun className="w-2.5 h-2.5 text-gray-400" /> : <CloudRain className="w-2.5 h-2.5 text-gray-400" />}
+              {v.indoor ? "Indoor" : "Outdoor"}
+            </span>
+          </div>
+        </div>
+
+        {/* 2. Venue Name */}
+        <h5 className="text-xs font-bold text-gray-900 truncate mb-1">
+          {v.name}
+        </h5>
+
+        {/* 3. Member Tag & Detail Hint */}
+        <div className="flex items-center justify-between text-[10px] text-gray-400 pt-1 border-t border-gray-100">
+          <span className="font-medium text-gray-600 truncate max-w-[120px]">
+            {item.members.join(", ")}
+          </span>
+          <span className="hover:text-gray-900 text-[10px]">
+            ${v.cost}
+          </span>
+        </div>
+
+        {item.note && (
+          <div className="mt-1 flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50/70 px-1.5 py-0.5 rounded truncate">
+            <MessageSquare className="w-2.5 h-2.5" />
+            <span className="truncate">{item.note}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

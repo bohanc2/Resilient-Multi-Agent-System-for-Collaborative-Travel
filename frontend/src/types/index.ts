@@ -18,8 +18,16 @@ export interface Requirements {
   max_regroup_gap_min: number;
 }
 
+export interface TransitInfo {
+  mode: "walk" | "drive" | "transit";
+  duration_mins: number;
+  from_venue_id?: string;
+  from_venue_name?: string;
+}
+
 export interface Setup {
   city: string;
+  days?: number;
   weekday: string;
   day_start: string;
   day_end: string;
@@ -35,14 +43,19 @@ export interface ItineraryItem {
   start: string;
   end: string;
   members: string[];
+  day?: number;
   note?: string;
   is_custom?: boolean;
+  transit_from_prev?: TransitInfo;
 }
 
 export interface PlanOutput {
   feasible: boolean;
   reason: string;
   itinerary: ItineraryItem[];
+  days?: number;
+  city?: string;
+  center?: [number, number];
   status?: string;
 }
 

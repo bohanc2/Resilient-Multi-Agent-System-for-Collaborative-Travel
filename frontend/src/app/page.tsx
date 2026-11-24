@@ -28,20 +28,21 @@ const InteractiveMap = dynamic(() => import("../components/InteractiveMap"), {
 
 const DEFAULT_SETUP: Setup = {
   city: "taipei",
+  days: 2,
   weekday: "Sat",
-  day_start: "09:00",
-  day_end: "21:30",
+  day_start: "09:30",
+  day_end: "21:00",
   start_location: "hotel_ximen",
   travelers: [
-    { name: "Alice", interests: ["hiking", "scenic"], max_walk: 2, budget: 2000 },
-    { name: "Bob", interests: ["food", "cafe"], max_walk: 1, budget: 1800 },
+    { name: "Traveler 1", interests: ["hiking", "scenic"], max_walk: 2, budget: 2000 },
+    { name: "Traveler 2", interests: ["food", "cafe"], max_walk: 1, budget: 1800 },
   ],
   anchors: [
     {
       venue_id: "din_tai_fung_101",
       start: "18:30",
-      end: "19:30",
-      members: ["Alice", "Bob"],
+      end: "20:00",
+      members: ["Traveler 1", "Traveler 2"],
     },
   ],
   requirements: {
@@ -62,6 +63,7 @@ export default function Home() {
   const [setup, setSetup] = useState<Setup>(DEFAULT_SETUP);
   const [plan, setPlan] = useState<PlanOutput | null>(null);
   const [initialPlanSnapshot, setInitialPlanSnapshot] = useState<PlanOutput | null>(null);
+  const [activeDay, setActiveDay] = useState<number>(1);
   const [currentEvent, setCurrentEvent] = useState<AgentStepEvent | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [backendHealthy, setBackendHealthy] = useState(true);
@@ -171,6 +173,10 @@ export default function Home() {
               setStreamError(null);
               setPlan(data.plan);
               setInitialPlanSnapshot(data.plan);
+              setActiveDay(1);
+              if ((data as any).venues) {
+                setVenuesMap((data as any).venues);
+              }
               if (data.plan.itinerary && data.plan.itinerary.length > 0) {
                 setSelectedVenueId(data.plan.itinerary[0].venue_id);
               }
@@ -421,7 +427,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-[#F9FAFB] text-gray-900">
       {/* Minimal Top Navbar (56px) */}
       <MinimalNavbar
-        city={setup.city.toUpperCase()}
+        city={plan?.city || setup.city.toUpperCase()}
         backendHealthy={backendHealthy}
         dataMode={dataMode}
         onReset={handleResetToOnboarding}
@@ -445,6 +451,8 @@ export default function Home() {
             replanModifiedVenueIds={replanModifiedVenueIds}
             venuesMap={venuesMap}
             onOpenAddStop={() => setIsAddStopOpen(true)}
+            activeDay={activeDay}
+            onDayChange={setActiveDay}
           />
         </section>
 
@@ -466,6 +474,7 @@ export default function Home() {
               selectedVenueId={selectedVenueId}
               onSelectVenue={handleSelectVenue}
               venuesMap={venuesMap}
+              activeDay={activeDay}
             />
           </div>
         </section>

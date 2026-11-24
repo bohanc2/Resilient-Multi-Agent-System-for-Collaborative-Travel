@@ -203,23 +203,35 @@ export function getVenue(id: string, venuesMap?: Record<string, VenueInfo>): Ven
   if (venuesMap && venuesMap[id]) {
     return venuesMap[id];
   }
-  return TAIPEI_VENUES[id] || {
+
+  // Derive reference coordinates from current venuesMap if available
+  let refLat = 0;
+  let refLon = 0;
+  if (venuesMap && Object.values(venuesMap).length > 0) {
+    const firstV = Object.values(venuesMap)[0];
+    if (firstV && firstV.lat) {
+      refLat = firstV.lat;
+      refLon = firstV.lon;
+    }
+  }
+
+  return {
     id,
     name: id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-    lat: 25.033,
-    lon: 121.564,
+    lat: refLat,
+    lon: refLon,
     indoor: true,
     tags: [],
     cost: 0,
     walk: 0,
     open: "09:00",
-    close: "21:00",
+    close: "21:30",
     min_minutes: 45,
     description: ""
   };
 }
 
-export function getGroupColor(members: string[]): {
+export function getGroupColor(members: string[], trackIndex: number = 0): {
   badge: string;
   bg: string;
   border: string;
@@ -227,43 +239,40 @@ export function getGroupColor(members: string[]): {
   pill: string;
   name: string;
 } {
-  const set = new Set(members);
-  if (set.has("Alice") || set.has("Bob")) {
-    return {
-      badge: "Hiking Track",
-      name: "Hiking",
+  const memberLabel = members.length > 0 ? members.join(", ") : "All Travelers";
+  const palettes = [
+    {
+      badge: `Track 1 · ${memberLabel}`,
+      name: "Track 1",
       bg: "bg-emerald-950/20",
       border: "border-emerald-500/40",
-      text: "text-emerald-400",
-      pill: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
-    };
-  }
-  if (set.has("Carol") || set.has("Dave")) {
-    return {
-      badge: "Art & Design Track",
-      name: "Art",
+      text: "text-emerald-600",
+      pill: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30"
+    },
+    {
+      badge: `Track 2 · ${memberLabel}`,
+      name: "Track 2",
       bg: "bg-indigo-950/20",
       border: "border-indigo-500/40",
-      text: "text-indigo-400",
-      pill: "bg-indigo-500/10 text-indigo-300 border-indigo-500/30"
-    };
-  }
-  if (set.has("Eve") || set.has("Frank")) {
-    return {
-      badge: "Cafe & Culture Track",
-      name: "Cafe",
+      text: "text-indigo-600",
+      pill: "bg-indigo-500/10 text-indigo-700 border-indigo-500/30"
+    },
+    {
+      badge: `Track 3 · ${memberLabel}`,
+      name: "Track 3",
       bg: "bg-amber-950/20",
       border: "border-amber-500/40",
-      text: "text-amber-400",
-      pill: "bg-amber-500/10 text-amber-300 border-amber-500/30"
-    };
-  }
-  return {
-    badge: "All Travelers",
-    name: "All",
-    bg: "bg-amber-500/10",
-    border: "border-amber-400/50",
-    text: "text-amber-300",
-    pill: "bg-amber-400/20 text-amber-200 border-amber-400/40"
-  };
+      text: "text-amber-600",
+      pill: "bg-amber-500/10 text-amber-700 border-amber-500/30"
+    },
+    {
+      badge: `Track 4 · ${memberLabel}`,
+      name: "Track 4",
+      bg: "bg-rose-950/20",
+      border: "border-rose-500/40",
+      text: "text-rose-600",
+      pill: "bg-rose-500/10 text-rose-700 border-rose-500/30"
+    }
+  ];
+  return palettes[trackIndex % palettes.length];
 }

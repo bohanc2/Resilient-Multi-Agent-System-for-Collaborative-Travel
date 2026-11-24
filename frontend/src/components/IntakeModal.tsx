@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Users, Lock, Sparkles, Plus, Trash2 } from "lucide-react";
+import { X, Users, Lock, Sparkles, Plus, Trash2, Calendar } from "lucide-react";
 import { Setup, Traveler } from "../types";
 
 interface IntakeModalProps {
@@ -20,15 +20,15 @@ const CITY_BUTTONS = [
   { id: "seattle", label: "Seattle" },
 ];
 
-const DEFAULT_TRAVELER_POOL: Traveler[] = [
-  { name: "Alice", interests: ["hiking", "scenic"], max_walk: 2, budget: 2000 },
-  { name: "Bob", interests: ["food", "cafe"], max_walk: 1, budget: 1800 },
-  { name: "Carol", interests: ["art", "museum"], max_walk: 1, budget: 2200 },
-  { name: "Dave", interests: ["architecture", "scenic"], max_walk: 2, budget: 2000 },
-  { name: "Eve", interests: ["shopping", "culture"], max_walk: 1, budget: 2500 },
-  { name: "Frank", interests: ["books", "cafe"], max_walk: 0, budget: 2200 },
-  { name: "Grace", interests: ["photography", "nature"], max_walk: 2, budget: 2000 },
-  { name: "Henry", interests: ["music", "nightlife"], max_walk: 1, budget: 2400 },
+const DEFAULT_INTERESTS_POOL = [
+  ["scenic", "hiking"],
+  ["food", "cafe"],
+  ["art", "museum"],
+  ["architecture", "scenic"],
+  ["shopping", "culture"],
+  ["nature", "photography"],
+  ["music", "nightlife"],
+  ["books", "history"],
 ];
 
 const CITY_DEFAULTS: Record<
@@ -92,7 +92,7 @@ export default function IntakeModal({
   const handleCityChange = (cityName: string) => {
     const normalized = cityName.toLowerCase().trim();
     const cityConfig = CITY_DEFAULTS[normalized];
-    const newHotel = cityConfig ? cityConfig.hotel : `${normalized}_hotel`;
+    const newHotel = cityConfig ? cityConfig.hotel : "";
     const newDinnerVenue = cityConfig ? cityConfig.dinnerVenue : "";
 
     const updatedAnchors = currentSetup.anchors.map((a) => ({
@@ -114,19 +114,43 @@ export default function IntakeModal({
     });
   };
 
+  const handleDurationChange = (days: number) => {
+    setCurrentSetup({
+      ...currentSetup,
+      days,
+    });
+  };
+
+  const handleTravelerNameChange = (index: number, newName: string) => {
+    const oldName = currentSetup.travelers[index].name;
+    const updated = [...currentSetup.travelers];
+    updated[index] = { ...updated[index], name: newName };
+
+    const updatedAnchors = currentSetup.anchors.map((a) => ({
+      ...a,
+      members: Array.isArray(a.members)
+        ? a.members.map((m) => (m === oldName ? newName : m))
+        : a.members,
+    }));
+
+    setCurrentSetup({
+      ...currentSetup,
+      travelers: updated,
+      anchors: updatedAnchors,
+    });
+  };
+
   const handleAddTraveler = () => {
     if (currentSetup.travelers.length >= 8) return;
-    const currentNames = new Set(currentSetup.travelers.map((t) => t.name));
-    const nextCandidate = DEFAULT_TRAVELER_POOL.find((p) => !currentNames.has(p.name)) || {
-      name: `Traveler ${currentSetup.travelers.length + 1}`,
-      interests: ["scenic", "food"],
-      max_walk: 1,
-      budget: CITY_DEFAULTS[currentSetup.city.toLowerCase()]?.defaultBudget || 2000,
-    };
+    const nextIdx = currentSetup.travelers.length + 1;
+    const nextInterests = DEFAULT_INTERESTS_POOL[(nextIdx - 1) % DEFAULT_INTERESTS_POOL.length];
+    const cityConfig = CITY_DEFAULTS[currentSetup.city.toLowerCase()];
 
     const newTraveler: Traveler = {
-      ...nextCandidate,
-      budget: CITY_DEFAULTS[currentSetup.city.toLowerCase()]?.defaultBudget || nextCandidate.budget,
+      name: `Traveler ${nextIdx}`,
+      interests: nextInterests,
+      max_walk: 1,
+      budget: cityConfig ? cityConfig.defaultBudget : 2000,
     };
 
     const updatedTravelers = [...currentSetup.travelers, newTraveler];
@@ -180,7 +204,7 @@ export default function IntakeModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-gray-900">Multiplayer Intake & Constraints</h3>
-              <p className="text-xs text-gray-500">Configure traveler budgets, walking effort, and immutable anchors</p>
+              <p className="text-xs text-gray-500">Configure trip duration, destination city, and traveler budgets</p>
             </div>
           </div>
           <button
@@ -191,12 +215,44 @@ export default function IntakeModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Trip Duration Section (1-5 Days) */}
+          <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-200 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-gray-600" />
+                <span>Trip Duration</span>
+              </label>
+              <span className="text-xs font-bold text-gray-900">
+                {currentSetup.days || 2} {(currentSetup.days || 2) === 1 ? "Day" : "Days"}
+              </span>
+            </div>
+            <div className="grid grid-cols-5 gap-1.5">
+              {[1, 2, 3, 4, 5].map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => handleDurationChange(d)}
+                  className={`py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    (currentSetup.days || 2) === d
+                      ? "bg-gray-900 text-white shadow-xs"
+                      : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
+                  }`}
+                >
+                  {d} {d === 1 ? "Day" : "Days"}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-500">
+              Standard daily tourist window automatically applied: 09:30 AM – 21:00 PM with non-overlapping venues across days.
+            </p>
+          </div>
+
           {/* Destination City Section */}
           <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-200 space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">
-                Destination City (OSM & Google Places Search)
+                Destination City (Global Geocoding & Real POI Search)
               </label>
               <span className="text-[11px] text-gray-700 font-mono font-semibold">
                 {currentSetup.city.toUpperCase()}
@@ -207,7 +263,7 @@ export default function IntakeModal({
                 type="text"
                 value={currentSetup.city}
                 onChange={(e) => handleCityChange(e.target.value)}
-                placeholder="Enter city name (e.g. taipei, paris, tokyo, nyc, seattle...)"
+                placeholder="Enter city (e.g. Austin, Texas or Whistler, BC, Canada)..."
                 className="flex-1 px-3 py-1.5 rounded-lg bg-white text-gray-900 border border-gray-300 text-xs focus:outline-none focus:border-gray-900"
               />
               <div className="flex items-center gap-1">
@@ -250,10 +306,16 @@ export default function IntakeModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {currentSetup.travelers.map((t, idx) => (
                 <div key={idx} className="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-2 text-xs relative">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-gray-900">{t.name}</span>
-                      <span className="text-[10px] text-gray-400">Traveler #{idx + 1}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 flex-1">
+                      <input
+                        type="text"
+                        value={t.name}
+                        onChange={(e) => handleTravelerNameChange(idx, e.target.value)}
+                        placeholder="Enter name..."
+                        className="font-bold text-gray-900 text-xs px-2 py-0.5 rounded bg-white border border-gray-300 focus:outline-none focus:border-gray-900 w-36"
+                      />
+                      <span className="text-[10px] text-gray-400 font-mono">#{idx + 1}</span>
                     </div>
                     {currentSetup.travelers.length > 1 && (
                       <button
@@ -270,7 +332,7 @@ export default function IntakeModal({
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="text-[10px] text-gray-500 block mb-0.5">
-                        Budget ({CITY_DEFAULTS[currentSetup.city.toLowerCase()]?.currency || "Local"})
+                        Budget ({CITY_DEFAULTS[currentSetup.city.toLowerCase()]?.currency || "USD"})
                       </label>
                       <input
                         type="number"
@@ -319,10 +381,10 @@ export default function IntakeModal({
           <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 space-y-1.5">
             <div className="flex items-center gap-1.5 text-amber-900 font-semibold text-xs">
               <Lock className="w-3.5 h-3.5 text-amber-600" />
-              <span>Locked Booking (Hard Anchor - Dinner Block)</span>
+              <span>Evening Convergence Anchor (Dinner)</span>
             </div>
             <p className="text-[11px] text-amber-800 leading-relaxed">
-              Fixed 18:30 - 19:30 {CITY_DEFAULTS[currentSetup.city.toLowerCase()]?.dinnerName || "City Center Dining Landmark"}, all {currentSetup.travelers.length} members attending. Multi-agent solver guarantees arrival convergence ≤ 15 min.
+              Standard 18:30 - 20:00 dinner reunion at {CITY_DEFAULTS[currentSetup.city.toLowerCase()]?.dinnerName || "local dining landmark"}, all {currentSetup.travelers.length} members attending. Multi-agent solver guarantees arrival convergence ≤ 15 min.
             </p>
           </div>
 

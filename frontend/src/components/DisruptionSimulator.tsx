@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { CloudLightning, RefreshCw, Zap, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { CloudLightning, RotateCcw, Loader2 } from "lucide-react";
 
 interface DisruptionSimulatorProps {
   onTriggerRainSpike: () => void;
@@ -19,59 +19,46 @@ export default function DisruptionSimulator({
   disabled,
 }: DisruptionSimulatorProps) {
   return (
-    <div className="glass-panel p-4 rounded-2xl border border-white/10 shadow-2xl space-y-3">
-      {/* Title & Badge */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-300">
-            <Zap className="w-4 h-4 text-amber-400" />
-          </div>
-          <h4 className="text-xs font-bold uppercase tracking-wider text-white">
-            Disruption Simulator (Event Injector)
-          </h4>
-        </div>
-
-        {isReplanActive ? (
-          <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium">
-            <CheckCircle2 className="w-3 h-3" />
-            Active Contingency
-          </span>
-        ) : (
-          <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
-            Standby Ready
-          </span>
-        )}
+    <div className="absolute top-4 right-4 z-[400] w-64 minimal-panel rounded-xl p-3.5 shadow-md border border-gray-200 bg-white/95 backdrop-blur space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold text-gray-900 tracking-tight">
+          Scenario Simulation
+        </span>
+        <span
+          className={`w-2 h-2 rounded-full ${
+            isReplanActive ? "bg-amber-500 animate-pulse" : "bg-emerald-500"
+          }`}
+        />
       </div>
 
-      <p className="text-xs text-slate-300 leading-relaxed">
-        Simulate an abrupt 14:00 weather shock (85% rain spike) to test how Multi-Agent executes localized replanning, replacing only the outdoor hiking track with an indoor alternative <strong>without altering other tracks or the 18:30 dinner anchor</strong>.
+      <p className="text-[11px] text-gray-500 leading-snug">
+        Test dynamic contingency: localizes weather impact without moving unaffected tracks or dinner.
       </p>
 
-      {/* Trigger Buttons */}
-      <div className="flex items-center gap-2 pt-1">
+      {/* Single Toggle Action Button */}
+      {isReplanActive ? (
+        <button
+          onClick={onResetReplan}
+          disabled={disabled || isLoading}
+          className="w-full py-2 px-3 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-semibold transition-all border border-gray-200 flex items-center justify-center gap-1.5 active:scale-[0.98]"
+        >
+          <RotateCcw className="w-3.5 h-3.5 text-gray-600" />
+          <span>Revert to Sunny Plan</span>
+        </button>
+      ) : (
         <button
           onClick={onTriggerRainSpike}
-          disabled={disabled || isLoading || isReplanActive}
-          className="flex-1 py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+          disabled={disabled || isLoading}
+          className="w-full py-2 px-3 rounded-lg bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold transition-all shadow-xs flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
         >
           {isLoading ? (
-            <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
           ) : (
-            <CloudLightning className="w-4 h-4 text-slate-950" />
+            <CloudLightning className="w-3.5 h-3.5 text-amber-400" />
           )}
-          <span>{isLoading ? "Calculating Contingency..." : "Simulate 14:00 Rain Spike (85%)"}</span>
+          <span>{isLoading ? "Replanning..." : "Simulate 14:00 Rain Spike"}</span>
         </button>
-
-        {isReplanActive && (
-          <button
-            onClick={onResetReplan}
-            className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition-all"
-            title="Reset to Original Plan"
-          >
-            Reset
-          </button>
-        )}
-      </div>
+      )}
     </div>
   );
 }

@@ -5,70 +5,84 @@
 @import "leaflet/dist/leaflet.css";
 
 :root {
-  --foreground-rgb: 240, 246, 252;
-  --background-start-rgb: 11, 15, 25;
-  --background-end-rgb: 8, 11, 19;
+  --background: #f9fafb;
+  --foreground: #111827;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: radial-gradient(circle at 50% 0%, #172033 0%, #0a0d17 70%);
+  color: var(--foreground);
+  background: var(--background);
   min-height: 100vh;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom scrollbars */
+/* Custom Minimalist Scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: #f3f4f6;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.8);
+  background: #d1d5db;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 85, 105, 1);
+  background: #9ca3af;
 }
 
-/* Glassmorphism helpers */
-.glass-panel {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+/* Minimalist Card & Panel Utilities (Linear / Apple style) */
+.minimal-panel {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
 }
 
-.glass-card {
-  background: rgba(26, 35, 58, 0.45);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+.minimal-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.glow-emerald {
-  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.35);
+.minimal-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 5px -1px rgba(0, 0, 0, 0.06);
 }
 
-.glow-amber {
-  box-shadow: 0 0 25px -5px rgba(245, 158, 11, 0.35);
-}
-
-/* Pulse animation for active replan change */
-@keyframes highlight-pulse {
+/* Replan Soft Highlight (Amber pulse for replaced card) */
+@keyframes soft-amber-pulse {
   0%, 100% {
-    border-color: rgba(16, 185, 129, 0.4);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4);
+    border-color: #f59e0b;
   }
   50% {
-    border-color: rgba(52, 211, 153, 0.9);
-    box-shadow: 0 0 20px 4px rgba(16, 185, 129, 0.6);
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2);
+    border-color: #d97706;
   }
 }
 
-.replan-highlight {
-  animation: highlight-pulse 2s infinite ease-in-out;
+.replan-soft-highlight {
+  animation: soft-amber-pulse 2.5s ease-in-out infinite;
+  background-color: #fffbeb !important;
+}
+
+/* Leaflet Map overrides for light minimalist aesthetics */
+.leaflet-container {
+  font-family: inherit;
+  background: #f9fafb !important;
+}
+
+.custom-leaflet-popup .leaflet-popup-content-wrapper {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.custom-leaflet-popup .leaflet-popup-tip {
+  background: #ffffff;
 }

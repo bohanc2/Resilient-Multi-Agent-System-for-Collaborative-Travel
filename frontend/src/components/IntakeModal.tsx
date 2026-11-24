@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Users, Lock, Sparkles, Plus, Trash2 } from "lucide-react";
+import { X, Users, Lock, Sparkles } from "lucide-react";
 import { Setup, Traveler } from "../types";
 
 interface IntakeModalProps {
@@ -36,35 +36,35 @@ export default function IntakeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="glass-panel w-full max-w-3xl rounded-2xl border border-white/10 p-6 space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="w-full max-w-2xl bg-white rounded-2xl border border-gray-200 p-6 space-y-5 shadow-xl animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-white/10">
+        <div className="flex items-center justify-between pb-3 border-b border-gray-100">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-sky-500/20 text-sky-400">
-              <Users className="w-6 h-6" />
+            <div className="w-8 h-8 rounded-lg bg-gray-100 text-gray-800 flex items-center justify-center border border-gray-200">
+              <Users className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Multiplayer Intake & Hard Anchors</h3>
-              <p className="text-xs text-slate-400">Configure traveler budgets, walking limits, interest tags, and immutable hard anchors</p>
+              <h3 className="text-base font-bold text-gray-900">Multiplayer Intake & Constraints</h3>
+              <p className="text-xs text-gray-500">Configure traveler budgets, walking effort, and immutable anchors</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Destination City Section */}
-          <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-2">
+          <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-200 space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                Destination City (Global Real Venue Search via OpenStreetMap & Google Places)
+              <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+                Destination City (OSM & Google Places Search)
               </label>
-              <span className="text-[11px] text-sky-400 font-mono">
+              <span className="text-[11px] text-gray-700 font-mono font-semibold">
                 {currentSetup.city.toUpperCase()}
               </span>
             </div>
@@ -73,8 +73,8 @@ export default function IntakeModal({
                 type="text"
                 value={currentSetup.city}
                 onChange={(e) => setCurrentSetup({ ...currentSetup, city: e.target.value.toLowerCase() })}
-                placeholder="Enter city name (e.g. taipei, tokyo, kyoto, paris, seattle, new york...)"
-                className="flex-1 px-3 py-1.5 rounded-lg bg-slate-800 text-white border border-slate-700 text-xs focus:outline-none focus:border-sky-500"
+                placeholder="Enter city name (e.g. taipei, tokyo, kyoto, paris, seattle...)"
+                className="flex-1 px-3 py-1.5 rounded-lg bg-white text-gray-900 border border-gray-300 text-xs focus:outline-none focus:border-gray-900"
               />
               <div className="flex items-center gap-1">
                 {["taipei", "kyoto", "tokyo", "paris"].map((c) => (
@@ -84,8 +84,8 @@ export default function IntakeModal({
                     onClick={() => setCurrentSetup({ ...currentSetup, city: c })}
                     className={`px-2 py-1 rounded text-[11px] font-medium transition-all ${
                       currentSetup.city.toLowerCase() === c
-                        ? "bg-sky-500/30 text-sky-300 border border-sky-500/50"
-                        : "bg-slate-800 text-slate-400 hover:text-white"
+                        ? "bg-gray-900 text-white"
+                        : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
                     }`}
                   >
                     {c.charAt(0).toUpperCase() + c.slice(1)}
@@ -96,35 +96,35 @@ export default function IntakeModal({
           </div>
 
           {/* Travelers Grid */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <span>Traveler Profiles ({currentSetup.travelers.length} Members)</span>
+          <div className="space-y-2.5">
+            <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+              Traveler Profiles ({currentSetup.travelers.length} Members)
             </h4>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {currentSetup.travelers.map((t, idx) => (
-                <div key={idx} className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2.5 text-xs">
+                <div key={idx} className="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-2 text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-sm">{t.name}</span>
-                    <span className="text-[11px] text-slate-400">Traveler #{idx + 1}</span>
+                    <span className="font-bold text-gray-900">{t.name}</span>
+                    <span className="text-[10px] text-gray-400">Traveler #{idx + 1}</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[10px] text-slate-400 block mb-0.5">Budget Limit (TWD)</label>
+                      <label className="text-[10px] text-gray-500 block mb-0.5">Budget (TWD)</label>
                       <input
                         type="number"
                         value={t.budget}
                         onChange={(e) => handleTravelerChange(idx, "budget", Number(e.target.value))}
-                        className="w-full px-2.5 py-1 rounded-lg bg-slate-800 text-white border border-slate-700 text-xs focus:outline-none focus:border-sky-500"
+                        className="w-full px-2 py-1 rounded bg-white text-gray-900 border border-gray-300 text-xs focus:outline-none focus:border-gray-900"
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] text-slate-400 block mb-0.5">Walk Limit (Lv.0~3)</label>
+                      <label className="text-[10px] text-gray-500 block mb-0.5">Walk Limit (0-3)</label>
                       <select
                         value={t.max_walk}
                         onChange={(e) => handleTravelerChange(idx, "max_walk", Number(e.target.value))}
-                        className="w-full px-2 py-1 rounded-lg bg-slate-800 text-white border border-slate-700 text-xs focus:outline-none focus:border-sky-500"
+                        className="w-full px-2 py-1 rounded bg-white text-gray-900 border border-gray-300 text-xs focus:outline-none focus:border-gray-900"
                       >
                         <option value={0}>Lv.0 (Flat / Seated)</option>
                         <option value={1}>Lv.1 (Light Walk)</option>
@@ -135,7 +135,7 @@ export default function IntakeModal({
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-slate-400 block mb-0.5">Interest Tags (comma separated)</label>
+                    <label className="text-[10px] text-gray-500 block mb-0.5">Interests (comma separated)</label>
                     <input
                       type="text"
                       value={t.interests.join(", ")}
@@ -146,7 +146,7 @@ export default function IntakeModal({
                           e.target.value.split(",").map((s) => s.trim()).filter(Boolean)
                         )
                       }
-                      className="w-full px-2.5 py-1 rounded-lg bg-slate-800 text-white border border-slate-700 text-xs focus:outline-none focus:border-sky-500"
+                      className="w-full px-2 py-1 rounded bg-white text-gray-900 border border-gray-300 text-xs focus:outline-none focus:border-gray-900"
                       placeholder="e.g. hiking, scenic, cafe, art"
                     />
                   </div>
@@ -156,33 +156,31 @@ export default function IntakeModal({
           </div>
 
           {/* Hard Anchor Section */}
-          <div className="p-4 rounded-xl bg-amber-950/20 border border-amber-500/30 space-y-2">
-            <div className="flex items-center gap-2">
-              <Lock className="w-4 h-4 text-amber-400" />
-              <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider">
-                Locked Booking (Hard Anchor - Dinner Block)
-              </h4>
+          <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-amber-900 font-semibold text-xs">
+              <Lock className="w-3.5 h-3.5 text-amber-600" />
+              <span>Locked Booking (Hard Anchor - Dinner Block)</span>
             </div>
-            <p className="text-xs text-slate-300">
-              Fixed 18:30 - 19:30 Din Tai Fung (Taipei 101), all 6 members attending. Multi-agent solver guarantees all split tracks converge at or before 18:15.
+            <p className="text-[11px] text-amber-800 leading-relaxed">
+              Fixed 18:30 - 19:30 Din Tai Fung (Taipei 101), all 6 members attending. Multi-agent solver guarantees arrival convergence ≤ 15 min.
             </p>
           </div>
 
           {/* Submit */}
-          <div className="flex items-center justify-end gap-3 pt-2 border-t border-white/10">
+          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-gray-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs sm:text-sm font-medium transition-all"
+              className="px-4 py-2 rounded-xl bg-white hover:bg-gray-100 text-gray-700 text-xs font-semibold border border-gray-200 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isStreaming}
-              className="px-5 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-sky-500/20 active:scale-[0.98] transition-all flex items-center gap-1.5"
+              className="px-5 py-2 rounded-xl bg-gray-900 hover:bg-gray-800 text-white text-xs font-bold shadow-sm active:scale-[0.98] transition-all flex items-center gap-1.5 disabled:opacity-50"
             >
-              <Sparkles className="w-4 h-4" />
+              <Sparkles className="w-3.5 h-3.5" />
               <span>Save & Stream Plan</span>
             </button>
           </div>

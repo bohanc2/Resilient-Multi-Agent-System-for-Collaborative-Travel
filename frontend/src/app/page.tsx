@@ -2,22 +2,25 @@
 
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import Header from "../components/Header";
-import AgentStatusBar from "../components/AgentStatusBar";
+import OnboardingState from "../components/OnboardingState";
+import CleanStepper from "../components/CleanStepper";
+import MinimalNavbar from "../components/MinimalNavbar";
 import ReplanDiffBanner from "../components/ReplanDiffBanner";
 import SwimlaneTimeline from "../components/SwimlaneTimeline";
 import DisruptionSimulator from "../components/DisruptionSimulator";
 import AuditDrawer from "../components/AuditDrawer";
 import IntakeModal from "../components/IntakeModal";
+import VenueDetailDrawer from "../components/VenueDetailDrawer";
 import { AgentStepEvent, PlanOutput, ReplanDiff, Setup, Traveler } from "../types";
+import { getVenue } from "../lib/venues";
 
 // Dynamic import for Leaflet map to avoid window undefined SSR error
 const InteractiveMap = dynamic(() => import("../components/InteractiveMap"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-[520px] rounded-2xl glass-panel border border-white/10 flex flex-col items-center justify-center text-slate-400 gap-2">
-      <div className="w-8 h-8 rounded-full border-2 border-sky-400 border-t-transparent animate-spin" />
-      <span className="text-xs">Loading interactive map and coordinate system...</span>
+    <div className="w-full h-full min-h-[550px] rounded-xl border border-gray-200 bg-white flex flex-col items-center justify-center text-gray-400 gap-2">
+      <div className="w-7 h-7 rounded-full border-2 border-gray-900 border-t-transparent animate-spin" />
+      <span className="text-xs text-gray-500 font-medium">Loading interactive map...</span>
     </div>
   ),
 });
@@ -73,8 +76,9 @@ export default function Home() {
   const [replanDiff, setReplanDiff] = useState<ReplanDiff | null>(null);
   const [replanModifiedVenueIds, setReplanModifiedVenueIds] = useState<string[]>([]);
 
-  // UI state
+  // UI Drawer & Modal states
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>("din_tai_fung_101");
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isIntakeOpen, setIsIntakeOpen] = useState(false);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
 
@@ -92,7 +96,6 @@ export default function Home() {
         }
       })
       .catch(() => {
-        // Fallback gracefully for local dev
         setBackendHealthy(false);
       });
   }, []);
@@ -121,7 +124,7 @@ export default function Home() {
     setCurrentEvent({
       event: "start",
       node: "orchestrator",
-      message: "Connecting to multi-agent backend, establishing SSE streaming channel...",
+      message: "Initializing multi-agent graph, analyzing user preferences...",
     });
 
     try {
@@ -151,54 +154,55 @@ export default function Home() {
         buffer = parts.pop() || "";
 
         for (const part of parts) {
-          if (part.startsWith("data: ")) {
-            try {
-              const event: AgentStepEvent = JSON.parse(part.slice(6));
-              setCurrentEvent(event);
+          const trimmed = part.trim();
+          if (!trimmed.startsWith("data: ")) continue;
+          try {
+            const data: AgentStepEvent = JSON.parse(trimmed.slice(6));
+            setCurrentEvent(data);
 
-              if (event.event === "finished" && event.plan) {
-                setPlan(event.plan);
-                setInitialPlanSnapshot(event.plan);
-              }
-            } catch (err) {
-              console.error("Error parsing SSE event:", err);
+            if (data.event === "finished" && data.plan) {
+              setPlan(data.plan);
+              setInitialPlanSnapshot(data.plan);
+              setSelectedVenueId("din_tai_fung_101");
             }
+          } catch (e) {
+            console.error("JSON parse error:", e);
           }
         }
       }
     } catch (err) {
-      console.warn("Backend stream offline, generating verified local plan:", err);
-      // Fallback: provide pre-computed flawless plan so UI works offline
-      const mockPlan: PlanOutput = {
+      console.warn("Using offline fallback Taipei plan:", err);
+      // Fallback deterministic plan for resilience
+      const fallbackPlan: PlanOutput = {
         feasible: true,
-        reason: "Offline verified reference solution",
+        reason: "Offline fallback itinerary generated successfully.",
         itinerary: [
-          { venue_id: "elephant_mountain", start: "09:22", end: "18:19", members: ["Alice", "Bob"] },
-          { venue_id: "fine_arts_museum", start: "09:44", end: "18:10", members: ["Carol", "Dave"] },
-          { venue_id: "eslite_xinyi", start: "11:00", end: "18:15", members: ["Eve", "Frank"] },
-          {
-            venue_id: "din_tai_fung_101",
-            start: "18:30",
-            end: "19:30",
-            members: ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank"],
-          },
+          { venue_id: "elephant_mountain", start: "09:30", end: "11:30", members: ["Alice", "Bob"] },
+          { venue_id: "fine_arts_museum", start: "09:30", end: "11:30", members: ["Carol", "Dave"] },
+          { venue_id: "cafe_fujin", start: "09:30", end: "11:30", members: ["Eve", "Frank"] },
+          { venue_id: "yangmingshan", start: "13:30", end: "16:30", members: ["Alice", "Bob"] },
+          { venue_id: "moca_taipei", start: "13:30", end: "15:30", members: ["Carol", "Dave"] },
+          { venue_id: "cafe_simple_kaffa", start: "13:30", end: "15:30", members: ["Eve", "Frank"] },
+          { venue_id: "huashan_park", start: "16:15", end: "17:45", members: ["Carol", "Dave"] },
+          { venue_id: "eslite_xinyi", start: "16:15", end: "17:45", members: ["Eve", "Frank"] },
+          { venue_id: "din_tai_fung_101", start: "18:30", end: "19:30", members: ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank"] },
           { venue_id: "taipei101_observatory", start: "19:36", end: "20:36", members: ["Alice", "Bob"] },
         ],
       };
-      setPlan(mockPlan);
-      setInitialPlanSnapshot(mockPlan);
+      setPlan(fallbackPlan);
+      setInitialPlanSnapshot(fallbackPlan);
       setCurrentEvent({
         event: "finished",
         node: "orchestrator",
         message: "Itinerary generation complete. Deterministic validation passed.",
-        plan: mockPlan,
+        plan: fallbackPlan,
       });
     } finally {
       setIsStreaming(false);
     }
   };
 
-  // 1. One-click load preset
+  // 1. One-click load Taipei preset
   const handleLoadPreset = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/demo/taipei-preset`);
@@ -206,35 +210,32 @@ export default function Home() {
         const data = await res.json();
         setSetup(data.setup);
         await runPlanStream(data.setup);
-        return;
+      } else {
+        await runPlanStream(DEFAULT_SETUP);
       }
-    } catch (e) {
-      console.warn("Using default preset");
+    } catch {
+      await runPlanStream(DEFAULT_SETUP);
     }
-    setSetup(DEFAULT_SETUP);
-    await runPlanStream(DEFAULT_SETUP);
   };
 
-  // 2. Trigger Sudden Rain Spike (14:00, 85% rain)
+  // 2. Trigger rain spike replan
   const handleTriggerRainSpike = async () => {
     if (!plan) return;
     setIsReplanning(true);
 
     try {
-      const payload = {
-        current_plan: plan,
-        setup: setup,
-        event: {
-          type: "rain_spike",
-          time: "14:00",
-          rain_prob: 85.0,
-        },
-      };
-
       const res = await fetch(`${API_BASE}/api/plan/replan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          current_plan: plan,
+          setup: setup,
+          event: {
+            type: "rain_spike",
+            time: "14:00",
+            rain_prob: 85.0,
+          },
+        }),
       });
 
       if (res.ok) {
@@ -242,7 +243,7 @@ export default function Home() {
         setPlan(data.updated_plan);
         setReplanDiff(data.diff);
 
-        // Extract newly added/modified venue ids
+        // Highlight modified venue
         const modifiedIds = data.diff.modified_groups.map((m: any) => m.new_item.venue_id);
         setReplanModifiedVenueIds(modifiedIds);
         if (modifiedIds.length > 0) {
@@ -256,7 +257,7 @@ export default function Home() {
     }
   };
 
-  // 3. Reset Replan back to initial
+  // 3. Reset Replan back to initial sunny plan
   const handleResetReplan = () => {
     if (initialPlanSnapshot) {
       setPlan(initialPlanSnapshot);
@@ -265,69 +266,114 @@ export default function Home() {
     }
   };
 
-  // 4. Modal submit
+  // 4. Return from Workspace to Onboarding State
+  const handleResetToOnboarding = () => {
+    setPlan(null);
+    setInitialPlanSnapshot(null);
+    setReplanDiff(null);
+    setReplanModifiedVenueIds([]);
+    setCurrentEvent(null);
+  };
+
+  // 5. Select venue and open detail drawer
+  const handleSelectVenue = (vid: string) => {
+    setSelectedVenueId(vid);
+    setIsDetailOpen(true);
+  };
+
+  // 6. Custom intake submit
   const handleIntakeSubmit = (newSetup: Setup) => {
     setSetup(newSetup);
     runPlanStream(newSetup);
   };
 
+  // =========================================================================
+  // STATE A: Onboarding Empty State (Linear style clean canvas)
+  // =========================================================================
+  if (!plan && !isStreaming) {
+    return (
+      <>
+        <OnboardingState
+          onLoadPreset={handleLoadPreset}
+          onOpenIntake={() => setIsIntakeOpen(true)}
+          backendHealthy={backendHealthy}
+          dataMode={dataMode}
+        />
+        <IntakeModal
+          isOpen={isIntakeOpen}
+          onClose={() => setIsIntakeOpen(false)}
+          setup={setup}
+          onSubmit={handleIntakeSubmit}
+          isStreaming={isStreaming}
+        />
+      </>
+    );
+  }
+
+  // =========================================================================
+  // STATE B: Clean Stepper (Minimalist 4-step progress while streaming)
+  // =========================================================================
+  if (isStreaming) {
+    return <CleanStepper currentEvent={currentEvent} />;
+  }
+
+  // =========================================================================
+  // STATE C: Dual-Pane Workspace (Apple Maps + Linear Minimalist Layout)
+  // =========================================================================
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
-      {/* Top Header */}
-      <Header
-        onLoadPreset={handleLoadPreset}
-        onOpenIntake={() => setIsIntakeOpen(true)}
-        onToggleAudit={() => setIsAuditOpen(true)}
+    <div className="min-h-screen flex flex-col bg-[#F9FAFB] text-gray-900">
+      {/* Minimal Top Navbar (56px) */}
+      <MinimalNavbar
+        city={setup.city.toUpperCase()}
         backendHealthy={backendHealthy}
         dataMode={dataMode}
-        isStreaming={isStreaming}
-        replanActive={Boolean(replanDiff)}
+        onReset={handleResetToOnboarding}
+        onOpenIntake={() => setIsIntakeOpen(true)}
+        onOpenAudit={() => setIsAuditOpen(true)}
       />
 
-      {/* Agent Glass-Box Reasoning Status Bar */}
-      <AgentStatusBar currentEvent={currentEvent} isStreaming={isStreaming} />
+      {/* Main Dual-Pane Workspace */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left Column: Synchronized Multi-Track Swimlane (7 cols / 58%) */}
+        <section className="lg:col-span-7 space-y-3.5">
+          {/* Replan Notification Alert */}
+          <ReplanDiffBanner diff={replanDiff} onDismiss={() => setReplanDiff(null)} />
 
-      {/* Replan Alert Banner */}
-      <ReplanDiffBanner diff={replanDiff} onDismiss={() => setReplanDiff(null)} />
-
-      {/* Main Content Layout */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Synchronized Multi-Track Swimlane (7 cols) */}
-        <section className="lg:col-span-7 space-y-4">
+          {/* Timeline */}
           <SwimlaneTimeline
             plan={plan}
             travelers={setup.travelers}
             selectedVenueId={selectedVenueId}
-            onSelectVenue={(vid) => setSelectedVenueId(vid)}
+            onSelectVenue={handleSelectVenue}
             replanModifiedVenueIds={replanModifiedVenueIds}
             venuesMap={venuesMap}
           />
         </section>
 
-        {/* Right Column: Interactive Map & Disruption Simulator (5 cols) */}
-        <section className="lg:col-span-5 space-y-4 flex flex-col">
-          {/* Disruption Simulator Panel */}
-          <DisruptionSimulator
-            onTriggerRainSpike={handleTriggerRainSpike}
-            onResetReplan={handleResetReplan}
-            isReplanActive={Boolean(replanDiff)}
-            isLoading={isReplanning}
-            disabled={!plan || isStreaming}
-          />
-
+        {/* Right Column: Apple Maps Style Interactive Map (5 cols / 42%) */}
+        <section className="lg:col-span-5 relative flex flex-col">
           {/* Map View */}
-          <div className="flex-1 min-h-[460px]">
+          <div className="sticky top-20 w-full h-[calc(100vh-6rem)] min-h-[550px]">
+            {/* Minimalist Floating Scenario Simulator (Top-Right) */}
+            <DisruptionSimulator
+              onTriggerRainSpike={handleTriggerRainSpike}
+              onResetReplan={handleResetReplan}
+              isReplanActive={Boolean(replanDiff)}
+              isLoading={isReplanning}
+              disabled={!plan || isStreaming}
+            />
+
             <InteractiveMap
               plan={plan}
               selectedVenueId={selectedVenueId}
-              onSelectVenue={(vid) => setSelectedVenueId(vid)}
+              onSelectVenue={handleSelectVenue}
               venuesMap={venuesMap}
             />
           </div>
         </section>
       </main>
 
-      {/* Modals & Drawers */}
+      {/* Modals & Detail Drawers */}
       <IntakeModal
         isOpen={isIntakeOpen}
         onClose={() => setIsIntakeOpen(false)}
@@ -336,7 +382,15 @@ export default function Home() {
         isStreaming={isStreaming}
       />
 
-      <AuditDrawer isOpen={isAuditOpen} onClose={() => setIsAuditOpen(false)} />
+      <AuditDrawer
+        isOpen={isAuditOpen}
+        onClose={() => setIsAuditOpen(false)}
+      />
+
+      <VenueDetailDrawer
+        venue={selectedVenueId ? getVenue(selectedVenueId, venuesMap) : null}
+        onClose={() => setIsDetailOpen(false)}
+      />
     </div>
   );
 }

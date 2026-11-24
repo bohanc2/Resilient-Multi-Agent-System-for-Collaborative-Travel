@@ -19,6 +19,22 @@ interface AddCustomStopModalProps {
   }) => void;
 }
 
+const TIME_OPTIONS = (() => {
+  const options: { value: string; label: string }[] = [];
+  for (let h = 7; h <= 23; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      const hh = String(h).padStart(2, "0");
+      const mm = String(m).padStart(2, "0");
+      const value = `${hh}:${mm}`;
+      const period = h >= 12 ? "PM" : "AM";
+      const displayH = h % 12 === 0 ? 12 : h % 12;
+      const label = `${String(displayH).padStart(2, "0")}:${mm} ${period}`;
+      options.push({ value, label });
+    }
+  }
+  return options;
+})();
+
 export default function AddCustomStopModal({
   isOpen,
   onClose,
@@ -110,23 +126,39 @@ export default function AddCustomStopModal({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-semibold text-gray-700">Start Time</label>
-              <input
-                type="time"
+              <select
                 required
                 value={start}
                 onChange={(e) => setStart(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg bg-white border border-gray-300 text-xs text-gray-900 focus:outline-none focus:border-gray-900"
-              />
+                className="w-full px-3 py-1.5 rounded-lg bg-white border border-gray-300 text-xs text-gray-900 focus:outline-none focus:border-gray-900 cursor-pointer"
+              >
+                {!TIME_OPTIONS.some((o) => o.value === start) && start && (
+                  <option value={start}>{start}</option>
+                )}
+                {TIME_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-gray-700">End Time</label>
-              <input
-                type="time"
+              <select
                 required
                 value={end}
                 onChange={(e) => setEnd(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg bg-white border border-gray-300 text-xs text-gray-900 focus:outline-none focus:border-gray-900"
-              />
+                className="w-full px-3 py-1.5 rounded-lg bg-white border border-gray-300 text-xs text-gray-900 focus:outline-none focus:border-gray-900 cursor-pointer"
+              >
+                {!TIME_OPTIONS.some((o) => o.value === end) && end && (
+                  <option value={end}>{end}</option>
+                )}
+                {TIME_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

@@ -136,171 +136,288 @@ def sanitize_setup(setup: dict, venues: dict) -> dict:
     return setup
 
 
-def _solve_group_with_venues(group, setup, n_groups, venues):
+def snap_15_ceil(m: int) -> int:
+    """Round minutes UP to the nearest 15-minute increment."""
+    return ((m + 14) // 15) * 15
+
+
+def snap_15_round(m: int) -> int:
+    """Round minutes to the nearest 15-minute increment."""
+    return round(m / 15.0) * 15
+
+
+def _solve_group_with_venues(group, setup, n_groups, venues, day_visited=None):
+    if day_visited is None:
+        day_visited = {}
+
     req = setup.get("requirements", {})
     travelers = [t for t in setup["travelers"] if t["name"] in group]
     max_walk = min(t.get("max_walk", 3) for t in travelers) if travelers else 3
+    budget = min(t.get("budget", 10**9) for t in travelers) if travelers else 10**9
     rain = rainy_hours(setup)
     wd = setup.get("weekday", "Sat")
     anchors = sorted([a for a in setup.get("anchors", [])
                       if (a.get("members", "all") == "all" or set(a.get("members", [])) & set(group)) and a.get("venue_id") in venues],
                      key=lambda a: to_min(a["start"]))
-    anchor_vids = {a["venue_id"] for a in anchors}
+    dinner_anchor = anchors[0] if anchors else None
+    dinner_vid = dinner_anchor["venue_id"] if dinner_anchor else None
+    dinner_s = to_min(dinner_anchor["start"]) if dinner_anchor else to_min("18:30")
+    dinner_e = to_min(dinner_anchor["end"]) if dinner_anchor else to_min("20:00")
+
     day_s = to_min(setup.get("day_start", "09:30"))
     day_e = to_min(setup.get("day_end", "21:00"))
-    min_act = max(1, int(req.get("min_activities", 2)))
+    hotel_id = setup.get("start_location")
+    if not hotel_id or hotel_id not in venues:
+        hotels = [vid for vid, v in venues.items() if "hotel" in v.get("tags", [])]
+        hotel_id = hotels[0] if hotels else next(iter(venues.keys()))
 
-    def ok_venue(vid, s, e):
+    current_cost = 0
+    if dinner_anchor:
+        current_cost += venues.get(dinner_vid, {}).get("cost", 0)
+
+    def is_ok(vid, s, e):
         v = venues[vid]
         if wd in v.get("closed_days", []) or v.get("walk", 0) > max_walk:
             return False
-        if s < to_min(v.get("open", "09:00")) or e > to_min(v.get("close", "21:30")):
+        if s < to_min(v.get("open", "08:00")) or e > to_min(v.get("close", "22:00")):
             return False
         if not v.get("indoor", True) and any(s < (h + 1) * 60 and e > h * 60 for h in rain):
             return False
-
-        # Time suitability guard
         suit = v.get("time_suitability", "any")
         if suit == "daytime" and s >= to_min("18:00"):
             return False
         if suit == "evening" and e <= to_min("17:00"):
             return False
-        return True
-
-    def goal(items):
-        free = [it for it in items if not it.get("anchor")]
-        if len(free) < min_act:
+        if current_cost + v.get("cost", 0) > budget:
             return False
-        vids = {it["venue_id"] for it in items}
-        if not must <= vids:
-            return False
-        all_city_tags = {tag for v in venues.values() for tag in v.get("tags", [])}
-        for t in travelers:
-            if req.get("interest_coverage") and t.get("interests"):
-                matching_city_interests = set(t["interests"]) & all_city_tags
-                if matching_city_interests and not any(set(venues[it["venue_id"]]["tags"]) & matching_city_interests for it in free):
-                    return False
-            if sum(venues[it["venue_id"]]["cost"] for it in items) > t.get("budget", 10 ** 9):
+        # Cross-track staggered duplicate check
+        if vid in day_visited:
+            prev_s, prev_e = day_visited[vid]
+            # Must match exact same time slot to allow co-visiting / shared card
+            if s != prev_s or e != prev_e:
                 return False
         return True
 
-    must = set(req.get("must_visit", [])) | {p["venue_id"] for p in req.get("preserve_venues", [])
-                                             if (p.get("members", "all") == "all" or set(p.get("members", [])) & set(group)) and p.get("venue_id") in venues}
-
-    candidates = [vid for vid in venues if vid not in anchor_vids and vid != setup.get("start_location")
-                  and "hotel" not in venues[vid].get("tags", [])]
     interests = {i for t in travelers for i in t.get("interests", [])}
 
-    def candidate_score(vid, curr_t, has_lunch, nxt_anchor_vid=None):
+    def score_venue(vid, pref_tags, target_t):
         v = venues[vid]
         v_tags = set(v.get("tags", []))
-        score = 0
-        if vid in must:
-            score += 50
+        s = 0
         if v_tags & interests:
-            score += 15
-        if 11 * 60 + 30 <= curr_t <= 13 * 60 + 30 and not has_lunch and (v_tags & {"food", "lunch", "dining", "restaurant", "cafe"}):
-            score += 30
-        if curr_t >= 19 * 60 + 30 and v.get("time_suitability") == "evening":
-            score += 20
-        if curr_t >= 15 * 60 + 30 and nxt_anchor_vid:
-            tr_to_anchor = travel_minutes(vid, nxt_anchor_vid, venues)
-            if tr_to_anchor <= 20:
-                score += 15
-        return -score
+            s += 50
+        if v_tags & pref_tags:
+            s += 25
+        if current_cost + v.get("cost", 0) <= budget:
+            s += 20
+        if dinner_vid and target_t >= to_min("15:00"):
+            tr_d = travel_minutes(vid, dinner_vid, venues)
+            if tr_d <= 20:
+                s += 30
+        return s
 
-    def dfs(loc, t, ai, items, used):
-        if ai == len(anchors):
-            if goal(items):
-                # Check evening activity after dinner before day_e
-                if t < day_e - 45:
-                    evening_cands = [vid for vid in candidates if vid not in used and venues[vid].get("time_suitability") in ("evening", "any")]
-                    evening_cands.sort(key=lambda vid: candidate_score(vid, t, True))
-                    for evid in evening_cands[:3]:
-                        ev = venues[evid]
-                        es = max(t + travel_minutes(loc, evid, venues), to_min(ev.get("open", "09:00")))
-                        dur = max(45, min(90, ev.get("duration_mins", 60)))
-                        ee = es + dur
-                        if ee <= day_e and ok_venue(evid, es, ee):
-                            new_items = items + [{"venue_id": evid, "start": to_hhmm(es), "end": to_hhmm(ee), "members": list(group)}]
-                            if goal(new_items):
-                                return new_items
-                return items
-            elif len(anchors) > 0:
-                return None
+    candidates = [
+        vid for vid in venues
+        if vid != hotel_id and vid != dinner_vid
+        and "hotel" not in venues[vid].get("tags", [])
+        and venues[vid].get("walk", 0) <= max_walk
+        and wd not in venues[vid].get("closed_days", [])
+    ]
 
-        nxt = anchors[ai] if ai < len(anchors) else None
-        if nxt:
-            a_s, a_e = to_min(nxt["start"]), to_min(nxt["end"])
-            tr = travel_minutes(loc, nxt["venue_id"], venues)
-            nfree = len(items) - ai
+    used = set()
+    items = []
 
-            # Transition to anchor once daytime schedule reaches late afternoon or candidates exhausted
-            can_fit_more = (t < 16 * 60 + 45) and any(
-                t + travel_minutes(loc, vid, venues) + 45 + travel_minutes(vid, nxt["venue_id"], venues) <= a_s
-                for vid in candidates if vid not in used
+    # 1. Morning Activity (starts ~09:45-10:00, ends ~11:30)
+    curr_t = day_s
+    curr_loc = hotel_id
+    morn_cands = [vid for vid in candidates if vid not in used and venues[vid].get("time_suitability") != "evening"]
+    morn_cands.sort(key=lambda vid: score_venue(vid, {"scenic", "museum", "culture", "trail", "park", "books", "art"}, curr_t), reverse=True)
+
+    for vid in morn_cands:
+        tr = travel_minutes(curr_loc, vid, venues)
+        s = snap_15_ceil(curr_t + tr)
+        s = max(s, snap_15_ceil(to_min(venues[vid].get("open", "09:00"))))
+        min_m = venues[vid].get("min_minutes", 60)
+        dur = max(min_m, min(105, round(venues[vid].get("duration_mins", 90) / 15) * 15))
+        e = s + dur
+        if e <= to_min("12:00") and is_ok(vid, s, e):
+            items.append({"venue_id": vid, "start": to_hhmm(s), "end": to_hhmm(e), "members": list(group)})
+            used.add(vid)
+            current_cost += venues[vid].get("cost", 0)
+            curr_loc = vid
+            curr_t = e
+            break
+
+    # 2. Lunch Activity (starts ~11:45-12:15, ends ~13:00-13:30)
+    food_tags = {"food", "lunch", "dining", "restaurant", "cafe", "night_market"}
+    lunch_cands = [vid for vid in candidates if vid not in used and (set(venues[vid].get("tags", [])) & food_tags)]
+    if not lunch_cands:
+        lunch_cands = [vid for vid in candidates if vid not in used]
+    lunch_cands.sort(key=lambda vid: score_venue(vid, food_tags | interests, curr_t), reverse=True)
+
+    for vid in lunch_cands:
+        tr = travel_minutes(curr_loc, vid, venues)
+        s = snap_15_ceil(curr_t + tr)
+        s = max(s, to_min("11:30"))
+        dur = max(venues[vid].get("min_minutes", 60), 60)
+        dur = round(dur / 15) * 15
+        e = s + dur
+        if e <= to_min("13:45") and is_ok(vid, s, e):
+            items.append({"venue_id": vid, "start": to_hhmm(s), "end": to_hhmm(e), "members": list(group)})
+            used.add(vid)
+            current_cost += venues[vid].get("cost", 0)
+            curr_loc = vid
+            curr_t = e
+            break
+
+    # 3. Afternoon Continuous Activities (until convergence ~17:15-17:45)
+    while True:
+        tr_to_din = travel_minutes(curr_loc, dinner_vid, venues) if dinner_vid else 0
+        if curr_t + tr_to_din >= to_min("17:15"):
+            break
+
+        aft_cands = [vid for vid in candidates if vid not in used and venues[vid].get("time_suitability") != "evening"]
+        if not aft_cands:
+            break
+        aft_cands.sort(key=lambda vid: score_venue(vid, {"museum", "park", "culture", "viewpoint", "shopping", "landmark", "cafe"} | interests, curr_t), reverse=True)
+
+        found = False
+        for vid in aft_cands:
+            tr = travel_minutes(curr_loc, vid, venues)
+            s = snap_15_ceil(curr_t + tr)
+            s = max(s, snap_15_ceil(to_min(venues[vid].get("open", "09:00"))))
+            min_m = venues[vid].get("min_minutes", 45)
+            tr_d = travel_minutes(vid, dinner_vid, venues) if dinner_vid else 0
+
+            # If this stop can reach dinner convergence (~17:50 - 18:05)
+            target_arrival = to_min("18:05")
+            ideal_end = ((target_arrival - tr_d) // 15) * 15
+            close_t = to_min(venues[vid].get("close", "22:00"))
+            max_end = min(close_t, max(s + min_m, s + 120), dinner_s - tr_d)
+
+            if s + min_m + tr_d > dinner_s or s + min_m > close_t:
+                continue
+
+            if s + min_m + tr_d >= to_min("16:15"):
+                if ideal_end >= s + min_m and ideal_end <= max_end:
+                    e = ideal_end
+                else:
+                    dur = max(min_m, min(90, round(venues[vid].get("duration_mins", 75) / 15) * 15))
+                    e = min(max_end, s + dur)
+            else:
+                dur = max(min_m, min(90, round(venues[vid].get("duration_mins", 75) / 15) * 15))
+                e = min(max_end, s + dur)
+
+            if e < s + min_m:
+                continue
+
+            if e + tr_d <= dinner_s and is_ok(vid, s, e):
+                items.append({"venue_id": vid, "start": to_hhmm(s), "end": to_hhmm(e), "members": list(group)})
+                used.add(vid)
+                current_cost += venues[vid].get("cost", 0)
+                curr_loc = vid
+                curr_t = e
+                found = True
+                break
+
+        if not found:
+            break
+
+    # If the group still arrives earlier than 17:50 (due to short activity or early finish),
+    # stretch the last activity up to its close time or max 135 min so arrival aligns with other groups!
+    if items and items[-1].get("venue_id") != dinner_vid and dinner_vid:
+        last_item = items[-1]
+        last_vid = last_item["venue_id"]
+        last_s = to_min(last_item["start"])
+        last_e = to_min(last_item["end"])
+        tr_d = travel_minutes(last_vid, dinner_vid, venues)
+        arrival = last_e + tr_d
+        if arrival < to_min("17:50"):
+            target_arrival = to_min("18:05")
+            ideal_end = ((target_arrival - tr_d) // 15) * 15
+            close_t = to_min(venues[last_vid].get("close", "22:00"))
+            new_end = ((min(ideal_end, close_t, last_s + 135, dinner_s - tr_d)) // 15) * 15
+            if new_end >= last_s + venues[last_vid].get("min_minutes", 30) and new_end <= close_t:
+                last_item["end"] = to_hhmm(new_end)
+                curr_loc = last_vid
+                curr_t = new_end
+
+    # 4. Dinner Anchor (18:30 to 20:00)
+    if dinner_anchor:
+        items.append({
+            "venue_id": dinner_vid,
+            "start": to_hhmm(dinner_s),
+            "end": to_hhmm(dinner_e),
+            "members": list(group),
+            "anchor": True,
+            "is_shared": True
+        })
+        curr_loc = dinner_vid
+        curr_t = dinner_e
+
+    # 5. Post-Dinner Evening Activity (20:15 to 21:00)
+    eve_cands = [vid for vid in candidates if vid not in used and venues[vid].get("time_suitability") in ("evening", "any")]
+    eve_cands.sort(key=lambda vid: score_venue(vid, {"viewpoint", "night_market", "dessert", "bar", "scenic"} | interests, curr_t), reverse=True)
+
+    for vid in eve_cands:
+        tr = travel_minutes(curr_loc, vid, venues)
+        s = snap_15_ceil(curr_t + tr)
+        min_m = venues[vid].get("min_minutes", 45)
+        dur = max(min_m, 45)
+        dur = round(dur / 15) * 15
+        e = s + dur
+        close_t = to_min(venues[vid].get("close", "22:00"))
+        if e <= min(close_t, day_e) and is_ok(vid, s, e):
+            items.append({"venue_id": vid, "start": to_hhmm(s), "end": to_hhmm(e), "members": list(group)})
+            used.add(vid)
+            break
+
+    return items
+
+
+def merge_identical_traveler_tracks(itinerary: list[dict], travelers: list[dict]) -> list[dict]:
+    """If two or more travelers have the identical sequence of stops and times, merge their items."""
+    traveler_names = [t["name"] for t in travelers]
+    if len(traveler_names) <= 1:
+        return itinerary
+
+    days = sorted(list({it.get("day", 1) for it in itinerary})) or [1]
+    merged_all = []
+
+    for d in days:
+        day_items = [it for it in itinerary if it.get("day", 1) == d]
+
+        # Build sequence for each traveler on this day
+        sched_by_traveler = {}
+        for name in traveler_names:
+            stops = tuple(
+                (it["venue_id"], it["start"], it["end"])
+                for it in sorted(day_items, key=lambda x: to_min(x["start"]))
+                if name in it.get("members", [])
             )
+            sched_by_traveler[name] = stops
 
-            if not can_fit_more:
-                new_items = [dict(x) for x in items]
-                arrival = None
-                if new_items and not new_items[-1].get("anchor"):
-                    last = new_items[-1]
-                    last_v = venues[last["venue_id"]]
-                    last_s = to_min(last["start"])
-                    close = to_min(last_v.get("close", "21:30"))
-                    # Cap venue visit duration: strictly never exceed 2.5 hours (150 mins)
-                    max_dur = min(150, last_v.get("max_duration_mins", 150))
-                    min_dur = last_v.get("min_minutes", 60)
-                    end = min(close, a_s - tr)
-                    if end - last_s > max_dur:
-                        end = last_s + max_dur
-                    if end - last_s >= min_dur:
-                        last["end"] = to_hhmm(end)
-                        arrival = end + tr
-                    else:
-                        arrival = None
-                elif t + tr <= a_s:
-                    arrival = a_s if not new_items else t + tr
+        # Find equivalence classes of travelers with identical non-empty schedules
+        from collections import defaultdict
+        groups = defaultdict(list)
+        for name, stops in sched_by_traveler.items():
+            if stops:
+                groups[stops].append(name)
 
-                if arrival is not None and arrival <= a_s and (a_s - arrival <= 35 or not new_items):
-                    new_items.append({"venue_id": nxt["venue_id"], "start": nxt["start"], "end": nxt["end"],
-                                      "members": list(group), "anchor": True, "is_shared": True})
-                    r = dfs(nxt["venue_id"], a_e, ai + 1, new_items, used)
-                    if r:
-                        return r
+        # For each group of travelers with identical schedules, ensure their items are unified
+        unified_day_items = []
+        for it in day_items:
+            it_copy = dict(it)
+            it_members = set(it_copy.get("members", []))
+            for stops, group_names in groups.items():
+                if len(group_names) > 1 and it_members & set(group_names):
+                    it_members.update(group_names)
+            it_copy["members"] = sorted(list(it_members))
+            unified_day_items.append(it_copy)
 
-        nfree = len(items) - ai
-        if nfree >= 5:
-            return None
+        merged_all.extend(deduplicate_itinerary(unified_day_items, len(traveler_names)))
 
-        limit_s = a_s if nxt else day_e
-        has_lunch = any(
-            any(tag in venues[it["venue_id"]].get("tags", []) for tag in ["food", "lunch", "dining", "restaurant"])
-            for it in items
-        )
-        avail = [vid for vid in candidates if vid not in used]
-        avail.sort(key=lambda vid: candidate_score(vid, t, has_lunch, nxt["venue_id"] if nxt else None))
-
-        for vid in avail[:4]:
-            v = venues[vid]
-            s = max(t + travel_minutes(loc, vid, venues), to_min(v.get("open", "09:00")))
-            dur = max(v.get("min_minutes", 60), min(120, v.get("duration_mins", v.get("min_minutes", 60))))
-            e = s + dur
-            back = travel_minutes(vid, nxt["venue_id"], venues) if nxt else 0
-            if e + back > limit_s or not ok_venue(vid, s, e):
-                continue
-                continue
-            r = dfs(vid, e, ai, items + [{"venue_id": vid, "start": to_hhmm(s), "end": to_hhmm(e), "members": list(group)}], used | {vid})
-            if r:
-                return r
-        return None
-
-    start_loc = setup.get("start_location")
-    if not start_loc or start_loc not in venues:
-        hotels = [vid for vid, v in venues.items() if "hotel" in v.get("tags", [])]
-        start_loc = hotels[0] if hotels else next(iter(venues.keys()))
-    return dfs(start_loc, day_s, 0, [], set())
+    return merged_all
 
 
 def deduplicate_itinerary(itinerary: list[dict], total_travelers: int = 0) -> list[dict]:
@@ -414,14 +531,18 @@ def solve(setup: dict):
         day_items = None
         for grouping in _groupings(day_setup["travelers"]):
             parts = []
+            day_visited = {}
             for g in grouping:
-                r = _solve_group_with_venues(g, day_setup, len(grouping), avail_venues)
+                r = _solve_group_with_venues(g, day_setup, len(grouping), avail_venues, day_visited)
                 if r is None:
                     break
+                for it in r:
+                    day_visited[it["venue_id"]] = (to_min(it["start"]), to_min(it["end"]))
                 parts.extend(r)
             else:
                 raw_it = [{k: v for k, v in it.items() if k != "anchor"} for it in parts]
-                day_items = deduplicate_itinerary(raw_it, total_travelers)
+                merged_tracks = merge_identical_traveler_tracks(raw_it, day_setup["travelers"])
+                day_items = deduplicate_itinerary(merged_tracks, total_travelers)
                 break
 
         # Fallback relaxation if strict grouping had no solution
@@ -430,14 +551,18 @@ def solve(setup: dict):
             relaxed_setup["requirements"] = {**relaxed_setup.get("requirements", {}), "min_activities": 1}
             for grouping in _groupings(relaxed_setup["travelers"]):
                 parts = []
+                day_visited = {}
                 for g in grouping:
-                    r = _solve_group_with_venues(g, relaxed_setup, len(grouping), venues)
+                    r = _solve_group_with_venues(g, relaxed_setup, len(grouping), venues, day_visited)
                     if r is None:
                         break
+                    for it in r:
+                        day_visited[it["venue_id"]] = (to_min(it["start"]), to_min(it["end"]))
                     parts.extend(r)
                 else:
                     raw_it = [{k: v for k, v in it.items() if k != "anchor"} for it in parts]
-                    day_items = deduplicate_itinerary(raw_it, total_travelers)
+                    merged_tracks = merge_identical_traveler_tracks(raw_it, day_setup["travelers"])
+                    day_items = deduplicate_itinerary(merged_tracks, total_travelers)
                     break
 
         if day_items:

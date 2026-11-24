@@ -28,6 +28,22 @@ interface VenueDetailDrawerProps {
   ) => void;
 }
 
+const TIME_OPTIONS = (() => {
+  const options: { value: string; label: string }[] = [];
+  for (let h = 7; h <= 23; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      const hh = String(h).padStart(2, "0");
+      const mm = String(m).padStart(2, "0");
+      const value = `${hh}:${mm}`;
+      const period = h >= 12 ? "PM" : "AM";
+      const displayH = h % 12 === 0 ? 12 : h % 12;
+      const label = `${String(displayH).padStart(2, "0")}:${mm} ${period}`;
+      options.push({ value, label });
+    }
+  }
+  return options;
+})();
+
 export default function VenueDetailDrawer({
   isOpen,
   venue,
@@ -242,21 +258,37 @@ export default function VenueDetailDrawer({
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <label className="text-[11px] font-semibold text-gray-600">Start Time</label>
-                      <input
-                        type="time"
+                      <select
                         value={editStart}
                         onChange={(e) => setEditStart(e.target.value)}
-                        className="w-full px-2 py-1 rounded bg-white border border-gray-300 text-xs text-gray-900 focus:outline-none focus:border-gray-900"
-                      />
+                        className="w-full px-2 py-1 rounded bg-white border border-gray-300 text-xs text-gray-900 focus:outline-none focus:border-gray-900 cursor-pointer"
+                      >
+                        {!TIME_OPTIONS.some((o) => o.value === editStart) && editStart && (
+                          <option value={editStart}>{editStart}</option>
+                        )}
+                        {TIME_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[11px] font-semibold text-gray-600">End Time</label>
-                      <input
-                        type="time"
+                      <select
                         value={editEnd}
                         onChange={(e) => setEditEnd(e.target.value)}
-                        className="w-full px-2 py-1 rounded bg-white border border-gray-300 text-xs text-gray-900 focus:outline-none focus:border-gray-900"
-                      />
+                        className="w-full px-2 py-1 rounded bg-white border border-gray-300 text-xs text-gray-900 focus:outline-none focus:border-gray-900 cursor-pointer"
+                      >
+                        {!TIME_OPTIONS.some((o) => o.value === editEnd) && editEnd && (
+                          <option value={editEnd}>{editEnd}</option>
+                        )}
+                        {TIME_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 

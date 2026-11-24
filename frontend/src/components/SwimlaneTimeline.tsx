@@ -105,21 +105,33 @@ export default function SwimlaneTimeline({
 
   const splitItems = dayItems.filter((it) => !isShared(it));
 
-  // 2. Dynamic grouping of split items into distinct sub-tracks (1..N)
+  // 2. Dynamic grouping of split items into distinct sub-tracks (1..N) with automatic track merging
   const colors: ("emerald" | "indigo" | "amber" | "rose")[] = [
     "emerald",
     "indigo",
     "amber",
     "rose",
   ];
-  const memberGroupMap = new Map<string, string[]>();
 
-  for (const it of splitItems) {
-    const key = [...it.members].sort().join(", ");
-    if (!memberGroupMap.has(key)) {
-      memberGroupMap.set(key, [...it.members]);
+  // Map each traveler to their sequence of daytime stops to merge identical tracks
+  const travelerSignatures = new Map<string, string>();
+  travelers.forEach((t) => {
+    const stops = dayItems
+      .filter((it) => it.members.includes(t.name) && !isShared(it))
+      .sort((a, b) => a.start.localeCompare(b.start))
+      .map((it) => `${it.venue_id}@${it.start}-${it.end}`)
+      .join("|");
+    travelerSignatures.set(t.name, stops);
+  });
+
+  const signatureToMembers = new Map<string, string[]>();
+  travelers.forEach((t) => {
+    const sig = travelerSignatures.get(t.name) || "";
+    if (!signatureToMembers.has(sig)) {
+      signatureToMembers.set(sig, []);
     }
-  }
+    signatureToMembers.get(sig)!.push(t.name);
+  });
 
   let tracks: {
     id: number;
@@ -128,29 +140,18 @@ export default function SwimlaneTimeline({
     color: "emerald" | "indigo" | "amber" | "rose";
   }[] = [];
 
-  if (memberGroupMap.size > 0) {
-    let idx = 0;
-    memberGroupMap.forEach((members) => {
-      tracks.push({
-        id: idx + 1,
-        label: `Track ${idx + 1}`,
-        members,
-        color: colors[idx % colors.length],
-      });
-      idx++;
+  let idx = 0;
+  signatureToMembers.forEach((members) => {
+    tracks.push({
+      id: idx + 1,
+      label: `Track ${idx + 1}`,
+      members,
+      color: colors[idx % colors.length],
     });
+    idx++;
+  });
 
-    const covered = new Set(tracks.flatMap((t) => t.members));
-    const uncovered = travelers.filter((t) => !covered.has(t.name));
-    if (uncovered.length > 0) {
-      tracks.push({
-        id: tracks.length + 1,
-        label: `Track ${tracks.length + 1}`,
-        members: uncovered.map((t) => t.name),
-        color: colors[tracks.length % colors.length],
-      });
-    }
-  } else {
+  if (tracks.length === 0) {
     tracks = [
       {
         id: 1,
@@ -354,13 +355,14 @@ export default function SwimlaneTimeline({
       </div>
 
       {/* 4. True 2D CSS Grid Timeline (ALL Tracks Strictly Side-by-Side in ONE Row) */}
-      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white p-3 shadow-xs">
+      <div className="w-full overflow-x-auto rounded-2xl border border-gray-200 bg-white p-3 shadow-xs">
         <div
+          className="w-full min-w-0"
           style={{
             display: "grid",
-            gridTemplateColumns: `72px repeat(${tracks.length}, minmax(220px, 1fr))`,
-            gridTemplateRows: `44px repeat(52, 24px)`,
-            minWidth: `${72 + tracks.length * 240}px`,
+            gridTemplateColumns: `64px repeat(${tracks.length}, minmax(0, 1fr))`,
+            gridTemplateRows: `44px repeat(52, 34px)`,
+            minWidth: tracks.length <= 3 ? "100%" : `${Math.max(680, 64 + tracks.length * 180)}px`,
             position: "relative",
           }}
         >
@@ -527,7 +529,7 @@ export default function SwimlaneTimeline({
                     gridRow: `${startRow} / ${endRow}`,
                     zIndex: isSelected ? 20 : 5,
                   }}
-                  className="p-1"
+                  className="p-1 min-w-0 overflow-hidden"
                 >
                   <TimelineCard
                     item={item}
@@ -659,7 +661,7 @@ function TimelineCard({
         <h5 className="text-xs font-bold text-gray-900 truncate">{v.name}</h5>
 
         {v.description && (
-          <p className="text-[11px] text-gray-500 line-clamp-1 hidden sm:block">
+          <p className="text-[11px] text-gray-500 line-clamp-1 overflow-hidden">
             {v.description}
           </p>
         )}

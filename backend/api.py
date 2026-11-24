@@ -213,7 +213,7 @@ async def plan_stream(req: PlanRequest):
     """
     async def event_generator():
         try:
-            from harness.solver import sanitize_setup, deduplicate_itinerary
+            from harness.solver import sanitize_setup, deduplicate_itinerary, merge_identical_traveler_tracks
             venues = await asyncio.to_thread(venues_for, req.setup)
             if not venues or len(venues) < 3:
                 yield f"data: {json.dumps({'event': 'error', 'step': 'error', 'node': 'base_planner', 'message': 'Could not find enough venues in this city, please try a major city.'})}\n\n"
@@ -239,6 +239,7 @@ async def plan_stream(req: PlanRequest):
                 if not plan:
                     plan = {"feasible": False, "reason": "No feasible itinerary found under current constraints", "itinerary": [], "days": n_days, "total_days": n_days, "duration_days": n_days}
                 else:
+                    plan["itinerary"] = merge_identical_traveler_tracks(plan.get("itinerary", []), setup.get("travelers", []))
                     plan["itinerary"] = deduplicate_itinerary(plan.get("itinerary", []), n_travelers)
                     plan["days"] = n_days
                     plan["total_days"] = n_days

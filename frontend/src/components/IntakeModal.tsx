@@ -124,6 +124,7 @@ export default function IntakeModal({
     setCurrentSetup({
       ...currentSetup,
       days,
+      duration_days: days,
     });
   };
 
@@ -213,7 +214,13 @@ export default function IntakeModal({
       const parsed = raw !== undefined ? raw.split(",").map((s) => s.trim()).filter(Boolean) : t.interests;
       return { ...t, interests: parsed.length > 0 ? parsed : ["scenic"] };
     });
-    onSubmit({ ...currentSetup, travelers: finalTravelers });
+    const finalDays = currentSetup.days || 2;
+    onSubmit({
+      ...currentSetup,
+      days: finalDays,
+      duration_days: currentSetup.duration_days || finalDays,
+      travelers: finalTravelers,
+    });
     onClose();
   };
 

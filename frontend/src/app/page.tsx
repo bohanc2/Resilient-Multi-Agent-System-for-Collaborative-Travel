@@ -29,6 +29,7 @@ const InteractiveMap = dynamic(() => import("../components/InteractiveMap"), {
 const DEFAULT_SETUP: Setup = {
   city: "taipei",
   days: 2,
+  duration_days: 2,
   weekday: "Sat",
   day_start: "09:30",
   day_end: "21:00",

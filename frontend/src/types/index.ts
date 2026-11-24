@@ -29,6 +29,7 @@ export interface TransitInfo {
 export interface Setup {
   city: string;
   days?: number;
+  duration_days?: number;
   weekday: string;
   day_start: string;
   day_end: string;
@@ -56,6 +57,8 @@ export interface PlanOutput {
   reason: string;
   itinerary: ItineraryItem[];
   days?: number;
+  total_days?: number;
+  duration_days?: number;
   city?: string;
   center?: [number, number];
   status?: string;

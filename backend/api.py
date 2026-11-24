@@ -120,6 +120,7 @@ TAIPEI_6P_PRESET = {
     "setup": {
         "city": "taipei",
         "days": 2,
+        "duration_days": 2,
         "weekday": "Sat",
         "day_start": "09:30",
         "day_end": "21:00",
@@ -223,7 +224,7 @@ async def plan_stream(req: PlanRequest):
             # Step 1: Orchestrator initialization
             city_name = setup.get("city_display", setup.get("city", "taipei").title())
             n_travelers = len(setup.get("travelers", []))
-            n_days = int(setup.get("days", 2))
+            n_days = max(1, min(5, int(setup.get("duration_days", setup.get("days", 2)))))
             yield f"data: {json.dumps({'event': 'start', 'step': 'orchestrator', 'node': 'orchestrator', 'message': f'Initializing multi-agent planning workflow for {city_name} ({n_days} days, {n_travelers} travelers)...'})}\n\n"
             await asyncio.sleep(0.1)
 
@@ -236,15 +237,18 @@ async def plan_stream(req: PlanRequest):
                 tools = await asyncio.to_thread(TripTools, setup)
                 plan = await asyncio.to_thread(solve, setup)
                 if not plan:
-                    plan = {"feasible": False, "reason": "No feasible itinerary found under current constraints", "itinerary": []}
+                    plan = {"feasible": False, "reason": "No feasible itinerary found under current constraints", "itinerary": [], "days": n_days, "total_days": n_days, "duration_days": n_days}
                 else:
-                    plan["itinerary"] = deduplicate_itinerary(plan.get("itinerary", []))
+                    plan["itinerary"] = deduplicate_itinerary(plan.get("itinerary", []), n_travelers)
+                    plan["days"] = n_days
+                    plan["total_days"] = n_days
+                    plan["duration_days"] = n_days
                     if "city" not in plan or not plan["city"]:
                         plan["city"] = city_name
                     if "center" not in plan and setup.get("center"):
                         plan["center"] = setup.get("center")
             except Exception as e:
-                plan = {"feasible": False, "reason": f"Solver fallback: {str(e)}", "itinerary": []}
+                plan = {"feasible": False, "reason": f"Solver fallback: {str(e)}", "itinerary": [], "days": n_days, "total_days": n_days, "duration_days": n_days}
 
             yield f"data: {json.dumps({'event': 'node_complete', 'step': 'base_planner', 'node': 'base_planner', 'message': f'Itinerary draft synthesized across {n_days} days with arrival convergence.'})}\n\n"
             await asyncio.sleep(0.1)
@@ -305,6 +309,11 @@ def _compute_replan(req: ReplanRequest) -> dict:
     updated_plan = solve(setup)
     if not updated_plan or not updated_plan.get("feasible"):
         updated_plan = dict(current_plan)
+
+    n_days = current_plan.get("total_days", current_plan.get("days", 1))
+    updated_plan["days"] = updated_plan.get("days", n_days)
+    updated_plan["total_days"] = updated_plan.get("total_days", n_days)
+    updated_plan["duration_days"] = updated_plan.get("duration_days", n_days)
 
     # 3. Compute precise diff between original itinerary and updated itinerary
     orig_items = current_plan.get("itinerary", [])

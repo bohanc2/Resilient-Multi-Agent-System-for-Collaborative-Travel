@@ -10,6 +10,7 @@ class ItineraryItem(BaseModel):
     start: str
     end: str
     members: List[str]
+    day: int = 1
 
     @field_validator("start", "end")
     @classmethod
@@ -28,6 +29,11 @@ class PlanOutput(BaseModel):
     reason: str = ""
     itinerary: List[ItineraryItem] = Field(default_factory=list)
     status: Optional[str] = "OK"
+    total_days: int = 1
+    days: int = 1
+    duration_days: int = 1
+    city: Optional[str] = ""
+    center: Optional[List[float]] = None
     collected_candidates: Optional[list] = Field(default_factory=list)
 
 

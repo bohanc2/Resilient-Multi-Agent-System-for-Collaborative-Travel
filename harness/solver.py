@@ -304,13 +304,15 @@ def _solve_group_with_venues(group, setup, n_groups, venues):
 
 
 def deduplicate_itinerary(itinerary: list[dict], total_travelers: int = 0) -> list[dict]:
-    """Merge items having identical (venue_id, start, end), combining member lists into a single shared stop."""
-    merged: dict[tuple[str, str, str], dict] = {}
-    order: list[tuple[str, str, str]] = []
+    """Merge items having identical (day, venue_id, start, end), combining member lists into a single shared stop."""
+    merged: dict[tuple[int, str, str, str], dict] = {}
+    order: list[tuple[int, str, str, str]] = []
     for it in itinerary:
-        key = (it["venue_id"], it["start"], it["end"])
+        day = it.get("day", 1)
+        key = (day, it["venue_id"], it["start"], it["end"])
         if key not in merged:
             merged[key] = dict(it)
+            merged[key]["day"] = day
             merged[key]["members"] = list(it.get("members", []))
             order.append(key)
         else:
@@ -337,7 +339,7 @@ def solve(setup: dict):
         return None
 
     setup = sanitize_setup(setup, venues)
-    total_days = max(1, min(5, int(setup.get("days", 2))))
+    total_days = max(1, min(5, int(setup.get("duration_days", setup.get("days", 2)))))
     total_travelers = len(setup.get("travelers", []))
     used_across_days: set[str] = set()
     all_day_itineraries: list[dict] = []
@@ -502,5 +504,7 @@ def solve(setup: dict):
         "reason": f"Synthesized {total_days}-day collaborative itinerary for {city_disp}",
         "city": city_disp,
         "days": total_days,
+        "total_days": total_days,
+        "duration_days": total_days,
         "itinerary": all_day_itineraries
     }

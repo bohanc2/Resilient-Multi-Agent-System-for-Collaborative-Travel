@@ -216,12 +216,14 @@ async def plan_stream(req: PlanRequest):
         yield f"data: {json.dumps({'event': 'node_start', 'node': 'base_planner', 'message': 'Base Planner fetching pairwise travel matrix and candidate venues...'})}\n\n"
         await asyncio.sleep(0.2)
 
-        # Generate plan using the deterministic solver / agent
-        tools = TripTools(setup)
-        plan = solve(setup)
-        if not plan:
-            # Fallback draft
-            plan = {"feasible": False, "reason": "No feasible itinerary found under constraints", "itinerary": []}
+        # Generate plan using the deterministic solver / agent with safety catch
+        try:
+            tools = TripTools(setup)
+            plan = solve(setup)
+            if not plan:
+                plan = {"feasible": False, "reason": "No feasible itinerary found under current constraints", "itinerary": []}
+        except Exception as e:
+            plan = {"feasible": False, "reason": f"Solver fallback: {str(e)}", "itinerary": []}
 
         yield f"data: {json.dumps({'event': 'node_complete', 'node': 'base_planner', 'message': 'Initial draft itinerary generated with locked bookings placed.'})}\n\n"
         await asyncio.sleep(0.15)
@@ -247,7 +249,15 @@ async def plan_stream(req: PlanRequest):
         # Step 5: Finished
         yield f"data: {json.dumps({'event': 'finished', 'node': 'orchestrator', 'message': 'Itinerary successfully generated and verified.', 'plan': plan})}\n\n"
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        }
+    )
 
 
 @app.post("/api/plan/replan")

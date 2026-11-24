@@ -147,16 +147,19 @@ def travel_minutes(a: str, b: str, venues: dict | None = None) -> int:
     if a == b:
         return 0
 
+    # 1. Instant O(1) in-memory snapshot matrix hit
+    if a in _MATRIX and b in _MATRIX[a]:
+        return _MATRIX[a][b]
+
+    # 2. Live OSRM query for dynamic/new venues outside snapshot
     if USE_LIVE_APIS:
         try:
             from .live import travel_minutes as live_travel
             return live_travel(a, b, venues)
         except Exception:
-            # Fallback to snapshot on timeout or error
+            # Fallback to Euclidean estimation on timeout or error
             pass
 
-    if a in _MATRIX and b in _MATRIX[a]:
-        return _MATRIX[a][b]
     va, vb = venues[a], venues[b]
     lat1, lon1, lat2, lon2 = map(math.radians, (va["lat"], va["lon"], vb["lat"], vb["lon"]))
     d = 2 * 6371 * math.asin(math.sqrt(math.sin((lat2 - lat1) / 2) ** 2 +

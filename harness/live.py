@@ -12,19 +12,36 @@ import urllib.request
 
 TRAFFIC_FACTOR, PICKUP_MIN = 1.3, 5
 
+_TRAVEL_CACHE: dict[tuple[str, str], int] = {}
+_CIRCUIT_OPEN = False
 
-def _get(url: str, timeout: float = 3.0) -> dict:
+
+def _get(url: str, timeout: float = 1.5) -> dict:
     with urllib.request.urlopen(url, timeout=timeout) as r:
         return json.load(r)
 
 
 def travel_minutes(a: str, b: str, venues: dict) -> int:
+    global _CIRCUIT_OPEN
     if a == b:
         return 0
+    cache_key = (a, b)
+    if cache_key in _TRAVEL_CACHE:
+        return _TRAVEL_CACHE[cache_key]
+
+    if _CIRCUIT_OPEN:
+        raise RuntimeError("Live OSRM circuit breaker open - falling back to snapshot")
+
     va, vb = venues[a], venues[b]
-    d = _get(f"https://router.project-osrm.org/route/v1/driving/{va['lon']},{va['lat']};{vb['lon']},{vb['lat']}"
-             "?overview=false")
-    return math.ceil(d["routes"][0]["duration"] / 60 * TRAFFIC_FACTOR + PICKUP_MIN)
+    try:
+        d = _get(f"https://router.project-osrm.org/route/v1/driving/{va['lon']},{va['lat']};{vb['lon']},{vb['lat']}"
+                 "?overview=false", timeout=1.5)
+        mins = math.ceil(d["routes"][0]["duration"] / 60 * TRAFFIC_FACTOR + PICKUP_MIN)
+        _TRAVEL_CACHE[cache_key] = mins
+        return mins
+    except Exception as e:
+        _CIRCUIT_OPEN = True
+        raise e
 
 
 def rain_by_hour(lat: float, lon: float, date: str) -> dict[int, float]:

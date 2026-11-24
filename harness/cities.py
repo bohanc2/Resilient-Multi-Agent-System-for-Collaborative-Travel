@@ -207,6 +207,27 @@ FIELDS = ["name", "lat", "lon", "indoor", "open", "close", "closed_days", "min_m
 def city_venues() -> dict[str, dict]:
     out = {}
     for city, rows in ROWS.items():
+        obs_id = CITY_INFO.get(city, {}).get("observatory", "")
         for vid, row in rows.items():
-            out[vid] = dict(zip(FIELDS, row), city=city)
+            d = dict(zip(FIELDS, row), city=city)
+            tags = set(d.get("tags", []))
+            min_m = d.get("min_minutes", 60)
+            
+            # Calibrated duration mins
+            if "cafe" in tags or "food" in tags:
+                d["duration_mins"] = min(75, max(45, min_m))
+            elif "hiking" in tags or "museum" in tags:
+                d["duration_mins"] = min(120, max(60, min_m))
+            else:
+                d["duration_mins"] = min(90, max(45, min_m))
+
+            # Calibrated time suitability
+            if vid == obs_id or any(t in tags for t in ["observatory", "night_view", "night_market"]):
+                d["time_suitability"] = "evening"
+            elif any(t in tags for t in ["hiking", "trail", "nature", "museum", "temple", "culture"]) or d.get("close", "21:00") <= "18:00":
+                d["time_suitability"] = "daytime"
+            else:
+                d["time_suitability"] = "any"
+
+            out[vid] = d
     return out

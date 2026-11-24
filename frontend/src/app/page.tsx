@@ -431,10 +431,10 @@ export default function Home() {
         onOpenAudit={() => setIsAuditOpen(true)}
       />
 
-      {/* Main Dual-Pane Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left Column: Synchronized Multi-Track Swimlane (7 cols / 58%) */}
-        <section className="lg:col-span-7 space-y-3.5">
+      {/* Main Full-Width Stacked Workspace (Timeline on top, Interactive Map below) */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 flex flex-col gap-8">
+        {/* Top: Synchronized Multi-Track Swimlane (100% Full Width) */}
+        <section className="w-full space-y-3.5">
           {/* Replan Notification Alert */}
           <ReplanDiffBanner diff={replanDiff} onDismiss={() => setReplanDiff(null)} />
 
@@ -452,11 +452,19 @@ export default function Home() {
           />
         </section>
 
-        {/* Right Column: Apple Maps Style Interactive Map (5 cols / 42%) */}
-        <section className="lg:col-span-5 relative flex flex-col">
-          {/* Map View */}
-          <div className="sticky top-20 w-full h-[calc(100vh-6rem)] min-h-[550px]">
-            {/* Minimalist Floating Scenario Simulator (Top-Right) */}
+        {/* Bottom: Apple Maps Style Interactive Map (100% Full Width) */}
+        <section className="w-full relative flex flex-col space-y-2">
+          <div className="flex items-center justify-between pb-1 border-b border-gray-200">
+            <span className="text-xs font-bold text-gray-900 uppercase tracking-wide">
+              Interactive Route Map & Directional Flow
+            </span>
+            <span className="text-[11px] text-gray-500 font-mono">
+              Day {activeDay} · Synchronized Waypoints & Numbered Pins
+            </span>
+          </div>
+
+          <div className="relative w-full h-[540px] rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+            {/* Minimalist Floating Scenario Simulator (Top-Right of Map) */}
             <DisruptionSimulator
               onTriggerRainSpike={handleTriggerRainSpike}
               onResetReplan={handleResetReplan}

@@ -128,13 +128,24 @@ export default function InteractiveMap({
     venue: getVenue(it.venue_id, venuesMap),
   }));
 
+  // 1. Identify Hotel Basecamp
+  const hotelId =
+    itemsToDisplay[0]?.transit_from_prev?.from_venue_id ||
+    Object.keys(venuesMap || {}).find((k) => k.includes("hotel")) ||
+    "hotel";
+  const hotelVenue = getVenue(hotelId, venuesMap);
+  const hasHotelCoords = Boolean(hotelVenue.lat && hotelVenue.lon && (hotelVenue.lat !== 0 || hotelVenue.lon !== 0));
+  const hotelCoords: [number, number] | null = hasHotelCoords ? [hotelVenue.lat, hotelVenue.lon] : null;
+
   // Determine city center coordinates
   const validVenues = venuesInPlan.filter(
     (vp) => vp.venue.lat && vp.venue.lon && (vp.venue.lat !== 0 || vp.venue.lon !== 0)
   );
 
   let defaultCenter: [number, number] = [25.033, 121.564];
-  if (validVenues.length > 0) {
+  if (hotelCoords) {
+    defaultCenter = hotelCoords;
+  } else if (validVenues.length > 0) {
     defaultCenter = [validVenues[0].venue.lat, validVenues[0].venue.lon];
   } else if (plan?.center && plan.center[0] !== 0) {
     defaultCenter = [plan.center[0], plan.center[1]];
@@ -145,7 +156,7 @@ export default function InteractiveMap({
     }
   }
 
-  // Dynamic route polylines grouped by member sub-groups
+  // 2. Dynamic route polylines grouped by member sub-groups, originating from Hotel
   const groupTrackColors = ["#059669", "#4f46e5", "#d97706", "#9333ea", "#0284c7"];
   const subGroupTracks: {
     name: string;
@@ -169,11 +180,14 @@ export default function InteractiveMap({
 
   let colorIdx = 0;
   trackMap.forEach(({ coords }, groupKey) => {
-    if (coords.length > 1) {
+    // Prepend hotel coordinates so every track's polyline originates from the hotel!
+    const fullCoords: [number, number][] = hotelCoords ? [hotelCoords, ...coords] : coords;
+
+    if (fullCoords.length > 1) {
       const arrows: { pos: [number, number]; angle: number }[] = [];
-      for (let i = 0; i < coords.length - 1; i++) {
-        const p1 = coords[i];
-        const p2 = coords[i + 1];
+      for (let i = 0; i < fullCoords.length - 1; i++) {
+        const p1 = fullCoords[i];
+        const p2 = fullCoords[i + 1];
         const mid: [number, number] = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
         const angle = calculateBearing(p1, p2);
         arrows.push({ pos: mid, angle });
@@ -182,7 +196,7 @@ export default function InteractiveMap({
       subGroupTracks.push({
         name: groupKey,
         color: groupTrackColors[colorIdx % groupTrackColors.length],
-        coords,
+        coords: fullCoords,
         arrows,
       });
       colorIdx++;
@@ -225,87 +239,112 @@ export default function InteractiveMap({
           </React.Fragment>
         ))}
 
-        {/* Markers for Itinerary Venues with Sequence Labels (S, 1, 2, ..., E, ★) */}
-        {venuesInPlan.map(({ item, venue }, idx) => {
-          if (!venue.lat || !venue.lon || (venue.lat === 0 && venue.lon === 0)) return null;
-
-          const isSharedAnchor = Boolean(item.is_shared || item.members.length >= 4 || item.start >= "18:00");
-          const trackIdx = subGroupTracks.findIndex((tr) =>
-            tr.name === [...item.members].sort().join(", ")
-          );
-          const pinColor = isSharedAnchor
-            ? "#111827"
-            : groupTrackColors[(trackIdx >= 0 ? trackIdx : idx) % groupTrackColors.length];
-
-          // Determine label: S for first stop, ★ for evening convergence, or sequential number
-          let label = String(idx + 1);
-          if (isSharedAnchor) {
-            label = "★";
-          } else if (idx === 0) {
-            label = "S";
-          } else if (idx === venuesInPlan.length - 1) {
-            label = "E";
-          }
-
-          return (
-            <Marker
-              key={`${item.venue_id}-${idx}`}
-              position={[venue.lat, venue.lon]}
-              icon={createCustomPin(pinColor, label)}
-              eventHandlers={{
-                click: () => onSelectVenue(item.venue_id),
-              }}
-            >
-              <Popup className="custom-leaflet-popup">
-                <div className="p-1 space-y-1.5 text-gray-900 min-w-[180px]">
-                  <div className="flex items-center gap-1.5 justify-between">
-                    <span className="text-[10px] font-mono font-bold text-gray-500">
-                      Day {item.day || 1} · {label === "S" ? "Start" : label === "E" ? "End" : label === "★" ? "Regroup" : `Stop #${label}`}
-                    </span>
-                    <span className="text-[10px] font-semibold text-gray-700 font-mono">
-                      {item.start} - {item.end}
-                    </span>
-                  </div>
-
-                  <h4 className="text-xs font-bold text-gray-900">{venue.name}</h4>
-
-                  {item.transit_from_prev && (
-                    <div className="text-[10px] text-gray-600 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded font-mono">
-                      {item.transit_from_prev.mode === "walk"
-                        ? "🚶 Walk"
-                        : item.transit_from_prev.mode === "transit"
-                        ? "🚇 MRT"
-                        : "🚕 Drive"}{" "}
-                      · {item.transit_from_prev.duration_mins} min from{" "}
-                      {item.transit_from_prev.from_venue_name || "previous"}
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-1.5 text-[11px] text-gray-500 pt-0.5">
-                    <span>${venue.cost} / person</span>
-                    <span>•</span>
-                    <span>{venue.indoor ? "Indoor" : "Outdoor"}</span>
-                  </div>
-
-                  <div className="text-[10px] font-medium text-gray-600 pt-0.5">
-                    Members: {item.members.join(", ")}
-                  </div>
-
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                      `${venue.name} ${venue.city || ""}`
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 block text-center py-1 px-2 rounded-md bg-gray-900 text-white text-[10px] font-semibold hover:bg-gray-800 transition-colors shadow-2xs"
-                  >
-                    Open in Google Maps ↗
-                  </a>
+        {/* Dedicated Unified Hotel Origin Marker (Label H) */}
+        {hotelCoords && (
+          <Marker
+            position={hotelCoords}
+            icon={createCustomPin("#111827", "H")}
+            eventHandlers={{
+              click: () => onSelectVenue(hotelId),
+            }}
+          >
+            <Popup className="custom-leaflet-popup">
+              <div className="p-1 space-y-1.5 text-gray-900 min-w-[180px]">
+                <div className="flex items-center gap-1.5 justify-between">
+                  <span className="text-[10px] font-mono font-bold text-gray-500">
+                    Day {activeDay} · Basecamp Origin
+                  </span>
+                  <span className="text-[10px] font-semibold text-gray-700 font-mono">
+                    09:30
+                  </span>
                 </div>
-              </Popup>
-            </Marker>
-          );
-        })}
+                <h4 className="text-xs font-bold text-gray-900">{hotelVenue.name || "Hotel Departure"}</h4>
+                <p className="text-[11px] text-gray-600">
+                  Shared origin point for all groups. Day {activeDay} exploration begins here.
+                </p>
+              </div>
+            </Popup>
+          </Marker>
+        )}
+
+        {/* Markers for Itinerary Venues with Color-Coded Sequential Numbers (1, 2, 3...) */}
+        {(() => {
+          const trackStopCounter: Record<string, number> = {};
+          return venuesInPlan.map(({ item, venue }, idx) => {
+            if (!venue.lat || !venue.lon || (venue.lat === 0 && venue.lon === 0)) return null;
+
+            const isSharedAnchor = Boolean(item.is_shared || item.members.length >= 4 || item.start >= "18:00");
+            const groupKey = [...item.members].sort().join(", ");
+            trackStopCounter[groupKey] = (trackStopCounter[groupKey] || 0) + 1;
+            const stopNum = trackStopCounter[groupKey];
+
+            const trackIdx = subGroupTracks.findIndex((tr) => tr.name === groupKey);
+            const pinColor = isSharedAnchor
+              ? "#111827"
+              : groupTrackColors[(trackIdx >= 0 ? trackIdx : idx) % groupTrackColors.length];
+
+            const label = String(stopNum);
+
+            return (
+              <Marker
+                key={`${item.venue_id}-${idx}`}
+                position={[venue.lat, venue.lon]}
+                icon={createCustomPin(pinColor, label)}
+                eventHandlers={{
+                  click: () => onSelectVenue(item.venue_id),
+                }}
+              >
+                <Popup className="custom-leaflet-popup">
+                  <div className="p-1 space-y-1.5 text-gray-900 min-w-[180px]">
+                    <div className="flex items-center gap-1.5 justify-between">
+                      <span className="text-[10px] font-mono font-bold text-gray-500">
+                        Day {item.day || 1} · Stop #{label} {isSharedAnchor ? "(Reunion)" : ""}
+                      </span>
+                      <span className="text-[10px] font-semibold text-gray-700 font-mono">
+                        {item.start} - {item.end}
+                      </span>
+                    </div>
+
+                    <h4 className="text-xs font-bold text-gray-900">{venue.name}</h4>
+
+                    {item.transit_from_prev && (
+                      <div className="text-[10px] text-gray-600 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded font-mono">
+                        {item.transit_from_prev.mode === "walk"
+                          ? "🚶 Walk"
+                          : item.transit_from_prev.mode === "transit"
+                          ? "🚇 MRT"
+                          : "🚕 Drive"}{" "}
+                        · {item.transit_from_prev.duration_mins} min from{" "}
+                        {item.transit_from_prev.from_venue_name || "previous"}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-1.5 text-[11px] text-gray-500 pt-0.5">
+                      <span>${venue.cost} / person</span>
+                      <span>•</span>
+                      <span>{venue.indoor ? "Indoor" : "Outdoor"}</span>
+                    </div>
+
+                    <div className="text-[10px] font-medium text-gray-600 pt-0.5">
+                      Members: {item.members.join(", ")}
+                    </div>
+
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        `${venue.name} ${venue.city || ""}`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 block text-center py-1 px-2 rounded-md bg-gray-900 text-white text-[10px] font-semibold hover:bg-gray-800 transition-colors shadow-2xs"
+                    >
+                      Open in Google Maps ↗
+                    </a>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          });
+        })()}
       </MapContainer>
     </div>
   );

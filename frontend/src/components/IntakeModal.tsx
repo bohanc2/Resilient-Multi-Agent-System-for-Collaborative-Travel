@@ -80,10 +80,16 @@ export default function IntakeModal({
   isStreaming,
 }: IntakeModalProps) {
   const [currentSetup, setCurrentSetup] = useState<Setup>(setup);
+  const [rawInterests, setRawInterests] = useState<Record<number, string>>({});
 
   useEffect(() => {
     if (isOpen) {
       setCurrentSetup(setup);
+      const init: Record<number, string> = {};
+      setup.travelers.forEach((t, i) => {
+        init[i] = t.interests.join(", ");
+      });
+      setRawInterests(init);
     }
   }, [isOpen, setup]);
 
@@ -159,6 +165,11 @@ export default function IntakeModal({
       members: updatedTravelers.map((t) => t.name),
     }));
 
+    setRawInterests((prev) => ({
+      ...prev,
+      [currentSetup.travelers.length]: nextInterests.join(", "),
+    }));
+
     setCurrentSetup({
       ...currentSetup,
       travelers: updatedTravelers,
@@ -173,6 +184,14 @@ export default function IntakeModal({
       ...a,
       members: updatedTravelers.map((t) => t.name),
     }));
+
+    setRawInterests(() => {
+      const init: Record<number, string> = {};
+      updatedTravelers.forEach((t, i) => {
+        init[i] = t.interests.join(", ");
+      });
+      return init;
+    });
 
     setCurrentSetup({
       ...currentSetup,
@@ -189,7 +208,12 @@ export default function IntakeModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(currentSetup);
+    const finalTravelers = currentSetup.travelers.map((t, idx) => {
+      const raw = rawInterests[idx];
+      const parsed = raw !== undefined ? raw.split(",").map((s) => s.trim()).filter(Boolean) : t.interests;
+      return { ...t, interests: parsed.length > 0 ? parsed : ["scenic"] };
+    });
+    onSubmit({ ...currentSetup, travelers: finalTravelers });
     onClose();
   };
 
@@ -360,14 +384,19 @@ export default function IntakeModal({
                     <label className="text-[10px] text-gray-500 block mb-0.5">Interests (comma separated)</label>
                     <input
                       type="text"
-                      value={t.interests.join(", ")}
-                      onChange={(e) =>
-                        handleTravelerChange(
-                          idx,
-                          "interests",
-                          e.target.value.split(",").map((s) => s.trim()).filter(Boolean)
-                        )
-                      }
+                      value={rawInterests[idx] !== undefined ? rawInterests[idx] : t.interests.join(", ")}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setRawInterests((prev) => ({ ...prev, [idx]: val }));
+                        const parsed = val.split(",").map((s) => s.trim()).filter(Boolean);
+                        handleTravelerChange(idx, "interests", parsed);
+                      }}
+                      onBlur={() => {
+                        setRawInterests((prev) => ({
+                          ...prev,
+                          [idx]: t.interests.join(", "),
+                        }));
+                      }}
                       className="w-full px-2 py-1 rounded bg-white text-gray-900 border border-gray-300 text-xs focus:outline-none focus:border-gray-900"
                       placeholder="e.g. hiking, scenic, cafe, art"
                     />

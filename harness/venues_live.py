@@ -118,6 +118,11 @@ def fetch_from_google_places(city: str, api_key: str, limit: int = 12) -> Dict[s
                         if t in TAG_MAPPINGS:
                             tags.extend(TAG_MAPPINGS[t])
                     tags = list(dict.fromkeys(tags))[:3]
+                    tags_set = set(tags)
+                    dur = 60 if ("cafe" in tags_set or "food" in tags_set) else (90 if ("hiking" in tags_set or "museum" in tags_set) else 75)
+                    suit = "evening" if any(t in tags_set for t in ["night_market", "night_view", "observatory", "bar"]) else (
+                        "daytime" if any(t in tags_set for t in ["hiking", "trail", "nature", "park", "museum", "temple", "culture"]) else "any"
+                    )
 
                     venues[vid] = {
                         "id": vid,
@@ -129,6 +134,8 @@ def fetch_from_google_places(city: str, api_key: str, limit: int = 12) -> Dict[s
                         "close": "21:00",
                         "closed_days": [],
                         "min_minutes": 60,
+                        "duration_mins": dur,
+                        "time_suitability": suit,
                         "cost": cost,
                         "walk": 3 if "mountain" in name.lower() or "trail" in name.lower() else (1 if not is_indoor else 0),
                         "tags": tags,
@@ -204,6 +211,11 @@ def fetch_from_osm_nominatim(city: str, limit: int = 20) -> Dict[str, Dict[str, 
                         tags = ["hiking", "scenic", "nature"]
 
                     cost = 25 if "dining" in tags or "food" in tags else (15 if "museum" in tags else (8 if "cafe" in tags else 0))
+                    tags_set = set(tags)
+                    dur = 60 if ("cafe" in tags_set or "food" in tags_set) else (90 if ("hiking" in tags_set or "museum" in tags_set) else 75)
+                    suit = "evening" if any(t in tags_set for t in ["night_market", "night_view", "observatory", "bar"]) else (
+                        "daytime" if any(t in tags_set for t in ["hiking", "trail", "nature", "park", "museum", "temple", "culture"]) else "any"
+                    )
 
                     venues[vid] = {
                         "id": vid,
@@ -215,6 +227,8 @@ def fetch_from_osm_nominatim(city: str, limit: int = 20) -> Dict[str, Dict[str, 
                         "close": "21:30",
                         "closed_days": [],
                         "min_minutes": 60,
+                        "duration_mins": dur,
+                        "time_suitability": suit,
                         "cost": cost,
                         "walk": walk_lvl,
                         "tags": tags,
@@ -237,6 +251,8 @@ def fetch_from_osm_nominatim(city: str, limit: int = 20) -> Dict[str, Dict[str, 
         "close": "23:59",
         "closed_days": [],
         "min_minutes": 0,
+        "duration_mins": 0,
+        "time_suitability": "any",
         "cost": 0,
         "walk": 0,
         "tags": ["hotel", "lodging"],

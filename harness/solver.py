@@ -10,14 +10,45 @@ MAX_FREE = 6
 
 def _groupings(travelers):
     names = [t["name"] for t in travelers]
+    if len(travelers) <= 1:
+        yield [names]
+        return
+
+    # Check if travelers have differing interests or walking abilities or budgets
+    differing_interests = len({(t.get("interests") or ["-"])[0] for t in travelers}) > 1
+    differing_walk = len({t.get("max_walk", 2) for t in travelers}) > 1
+    differing_budget = len({t.get("budget", 2000) for t in travelers}) > 1
+
+    if differing_interests or differing_walk or differing_budget:
+        # 1. Group by primary interest
+        by_interest: dict[str, list[str]] = {}
+        for t in travelers:
+            key = (t.get("interests") or ["general"])[0]
+            by_interest.setdefault(key, []).append(t["name"])
+        if len(by_interest) > 1:
+            yield list(by_interest.values())
+
+        # 2. Group by walking limit
+        by_walk: dict[int, list[str]] = {}
+        for t in travelers:
+            w = t.get("max_walk", 2)
+            by_walk.setdefault(w, []).append(t["name"])
+        if len(by_walk) > 1 and list(by_walk.values()) != list(by_interest.values()):
+            yield list(by_walk.values())
+
+        # 3. Multi-group partitions (e.g. 2 or 3 distinct sub-groups) for 4+ travelers
+        if len(names) >= 4:
+            mid = len(names) // 2
+            yield [names[:mid], names[mid:]]
+        if len(names) == 6:
+            yield [names[:2], names[2:4], names[4:]]
+
+        # 4. Individual tracks if 2-3 travelers
+        if 1 < len(names) <= 3:
+            yield [[n] for n in names]
+
+    # Finally fallback: all together
     yield [names]
-    by_interest: dict[str, list[str]] = {}
-    for t in travelers:
-        by_interest.setdefault((t.get("interests") or ["-"])[0], []).append(t["name"])
-    if len(by_interest) > 1:
-        yield list(by_interest.values())
-    if len(names) > 1:
-        yield [[n] for n in names]
 
 
 def sanitize_setup(setup: dict, venues: dict) -> dict:
@@ -180,74 +211,85 @@ def _solve_group_with_venues(group, setup, n_groups, venues):
 
     def dfs(loc, t, ai, items, used):
         if ai == len(anchors):
-            # Check evening activity after dinner before day_e
-            if t < day_e - 45:
-                evening_cands = [vid for vid in candidates if vid not in used and venues[vid].get("time_suitability") in ("evening", "any")]
-                evening_cands.sort(key=lambda vid: candidate_score(vid, t, True))
-                for evid in evening_cands[:3]:
-                    ev = venues[evid]
-                    es = max(t + travel_minutes(loc, evid, venues), to_min(ev.get("open", "09:00")))
-                    dur = max(45, min(90, ev.get("duration_mins", 60)))
-                    ee = es + dur
-                    if ee <= day_e and ok_venue(evid, es, ee):
-                        new_items = items + [{"venue_id": evid, "start": to_hhmm(es), "end": to_hhmm(ee), "members": list(group)}]
-                        if goal(new_items):
-                            return new_items
-            return items if goal(items) else None
+            if goal(items):
+                # Check evening activity after dinner before day_e
+                if t < day_e - 45:
+                    evening_cands = [vid for vid in candidates if vid not in used and venues[vid].get("time_suitability") in ("evening", "any")]
+                    evening_cands.sort(key=lambda vid: candidate_score(vid, t, True))
+                    for evid in evening_cands[:3]:
+                        ev = venues[evid]
+                        es = max(t + travel_minutes(loc, evid, venues), to_min(ev.get("open", "09:00")))
+                        dur = max(45, min(90, ev.get("duration_mins", 60)))
+                        ee = es + dur
+                        if ee <= day_e and ok_venue(evid, es, ee):
+                            new_items = items + [{"venue_id": evid, "start": to_hhmm(es), "end": to_hhmm(ee), "members": list(group)}]
+                            if goal(new_items):
+                                return new_items
+                return items
+            elif len(anchors) > 0:
+                return None
 
-        nxt = anchors[ai]
-        a_s, a_e = to_min(nxt["start"]), to_min(nxt["end"])
-        tr = travel_minutes(loc, nxt["venue_id"], venues)
+        nxt = anchors[ai] if ai < len(anchors) else None
+        if nxt:
+            a_s, a_e = to_min(nxt["start"]), to_min(nxt["end"])
+            tr = travel_minutes(loc, nxt["venue_id"], venues)
+            nfree = len(items) - ai
+
+            # Transition to anchor once daytime schedule reaches late afternoon or candidates exhausted
+            can_fit_more = (t < 16 * 60 + 45) and any(
+                t + travel_minutes(loc, vid, venues) + 45 + travel_minutes(vid, nxt["venue_id"], venues) <= a_s
+                for vid in candidates if vid not in used
+            )
+
+            if not can_fit_more:
+                new_items = [dict(x) for x in items]
+                arrival = None
+                if new_items and not new_items[-1].get("anchor"):
+                    last = new_items[-1]
+                    last_v = venues[last["venue_id"]]
+                    last_s = to_min(last["start"])
+                    close = to_min(last_v.get("close", "21:30"))
+                    # Cap venue visit duration: strictly never exceed 2.5 hours (150 mins)
+                    max_dur = min(150, last_v.get("max_duration_mins", 150))
+                    min_dur = last_v.get("min_minutes", 60)
+                    end = min(close, a_s - tr)
+                    if end - last_s > max_dur:
+                        end = last_s + max_dur
+                    if end - last_s >= min_dur:
+                        last["end"] = to_hhmm(end)
+                        arrival = end + tr
+                    else:
+                        arrival = None
+                elif t + tr <= a_s:
+                    arrival = a_s if not new_items else t + tr
+
+                if arrival is not None and arrival <= a_s and (a_s - arrival <= 35 or not new_items):
+                    new_items.append({"venue_id": nxt["venue_id"], "start": nxt["start"], "end": nxt["end"],
+                                      "members": list(group), "anchor": True, "is_shared": True})
+                    r = dfs(nxt["venue_id"], a_e, ai + 1, new_items, used)
+                    if r:
+                        return r
+
         nfree = len(items) - ai
-
-        # Transition to anchor once daytime schedule reaches late afternoon or candidates exhausted
-        can_fit_more = (t < 16 * 60 + 45) and any(
-            t + travel_minutes(loc, vid, venues) + 45 + travel_minutes(vid, nxt["venue_id"], venues) <= a_s
-            for vid in candidates if vid not in used
-        )
-
-        if not can_fit_more:
-            new_items = [dict(x) for x in items]
-            arrival = None
-            if new_items and not new_items[-1].get("anchor"):
-                last = new_items[-1]
-                last_v = venues[last["venue_id"]]
-                last_s = to_min(last["start"])
-                close = to_min(last_v.get("close", "21:30"))
-                # Cap venue visit duration: strictly never exceed 2.5 hours (150 mins)
-                max_dur = min(150, last_v.get("max_duration_mins", 150))
-                end = min(close, a_s - tr)
-                if end - last_s > max_dur:
-                    end = last_s + max_dur
-                last["end"] = to_hhmm(end)
-                arrival = end + tr
-            elif t + tr <= a_s:
-                arrival = a_s if not new_items else t + tr
-
-            if arrival is not None and arrival <= a_s and (a_s - arrival <= 35 or not new_items):
-                new_items.append({"venue_id": nxt["venue_id"], "start": nxt["start"], "end": nxt["end"],
-                                  "members": list(group), "anchor": True, "is_shared": True})
-                r = dfs(nxt["venue_id"], a_e, ai + 1, new_items, used)
-                if r:
-                    return r
-
         if nfree >= 5:
             return None
 
+        limit_s = a_s if nxt else day_e
         has_lunch = any(
             any(tag in venues[it["venue_id"]].get("tags", []) for tag in ["food", "lunch", "dining", "restaurant"])
             for it in items
         )
         avail = [vid for vid in candidates if vid not in used]
-        avail.sort(key=lambda vid: candidate_score(vid, t, has_lunch, nxt["venue_id"]))
+        avail.sort(key=lambda vid: candidate_score(vid, t, has_lunch, nxt["venue_id"] if nxt else None))
 
         for vid in avail[:4]:
             v = venues[vid]
             s = max(t + travel_minutes(loc, vid, venues), to_min(v.get("open", "09:00")))
-            dur = max(45, min(120, v.get("duration_mins", max(45, v.get("min_minutes", 60)))))
+            dur = max(v.get("min_minutes", 60), min(120, v.get("duration_mins", v.get("min_minutes", 60))))
             e = s + dur
-            back = travel_minutes(vid, nxt["venue_id"], venues)
-            if e + back > a_s or not ok_venue(vid, s, e):
+            back = travel_minutes(vid, nxt["venue_id"], venues) if nxt else 0
+            if e + back > limit_s or not ok_venue(vid, s, e):
+                continue
                 continue
             r = dfs(vid, e, ai, items + [{"venue_id": vid, "start": to_hhmm(s), "end": to_hhmm(e), "members": list(group)}], used | {vid})
             if r:
@@ -314,22 +356,49 @@ def solve(setup: dict):
         if len(non_hotel_avail) < 3:
             avail_venues = venues
 
-        # Day anchors: on Day 1, use setup anchors. On Day 2+, select a fresh dining spot for evening convergence
-        if day == 1:
+        # Day anchors: on Day 1, use setup anchors if present.
+        # If no setup anchors on Day 1 and single traveler, allow free activities without forcing a dinner anchor.
+        # For multiplayer group trips (2+ travelers) or Day 2+, provide evening convergence dinner.
+        if day == 1 and setup.get("anchors"):
             day_anchors = list(setup.get("anchors", []))
             for a in day_anchors:
                 a["is_shared"] = True
+        elif day == 1 and not setup.get("anchors") and len(setup.get("travelers", [])) < 2:
+            day_anchors = []
         else:
+            # Convergence dinner must be suitable for all group members (walk limit, indoor/evening)
+            max_group_walk = min(t.get("max_walk", 3) for t in setup["travelers"])
             dinner_candidates = [
                 vid for vid, v in avail_venues.items()
-                if any(t in v.get("tags", []) for t in ["dining", "food", "restaurant", "night_market"])
+                if any(t in v.get("tags", []) for t in ["dining", "food", "restaurant", "cafe", "night_market"])
+                and v.get("walk", 0) <= max_group_walk
+                and not any(tag in v.get("tags", []) for tag in ["hiking", "trail", "mountain"])
                 and vid != setup.get("start_location")
             ]
             if not dinner_candidates:
-                dinner_candidates = [vid for vid in avail_venues if vid != setup.get("start_location")]
+                # If all food spots were used on earlier days, allow venues from the full city venue pool
+                dinner_candidates = [
+                    vid for vid, v in venues.items()
+                    if any(t in v.get("tags", []) for t in ["dining", "food", "restaurant", "cafe", "night_market"])
+                    and v.get("walk", 0) <= max_group_walk
+                    and not any(tag in v.get("tags", []) for tag in ["hiking", "trail", "mountain"])
+                    and vid != setup.get("start_location")
+                ]
+            if not dinner_candidates:
+                dinner_candidates = [
+                    vid for vid, v in venues.items()
+                    if v.get("walk", 0) <= max_group_walk
+                    and not any(tag in v.get("tags", []) for tag in ["hiking", "trail", "mountain"])
+                    and vid != setup.get("start_location")
+                ]
             
-            evening_dinners = [vid for vid in dinner_candidates if avail_venues[vid].get("time_suitability") == "evening"]
-            chosen_dinner = evening_dinners[0] if evening_dinners else dinner_candidates[0]
+            from .cities import CITY_INFO
+            city_dinner = CITY_INFO.get(setup.get("city", "taipei").lower(), {}).get("dinner")
+            if day == 1 and city_dinner and city_dinner in avail_venues:
+                chosen_dinner = city_dinner
+            else:
+                evening_dinners = [vid for vid in dinner_candidates if venues[vid].get("time_suitability") == "evening"]
+                chosen_dinner = evening_dinners[0] if evening_dinners else dinner_candidates[0]
             day_anchors = [{
                 "venue_id": chosen_dinner,
                 "start": "18:30",

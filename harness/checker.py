@@ -47,7 +47,8 @@ def check_plan(plan, setup: dict, checks: list[str] | None = None) -> list[str]:
             v.append(f"schema: item {i} unknown members {bad}")
         if e <= s:
             v.append(f"schema: item {i} ({vid}) ends before it starts")
-        items.append(dict(idx=i, vid=vid, s=s, e=e, mem=[m for m in mem if m in names]))
+        day = it.get("day", 1)
+        items.append(dict(idx=i, vid=vid, s=s, e=e, mem=[m for m in mem if m in names], day=day))
     if "schema" not in checks:
         v = [x for x in v if not x.startswith("schema")]
 
@@ -101,29 +102,36 @@ def check_plan(plan, setup: dict, checks: list[str] | None = None) -> list[str]:
     if start_loc not in venues:
         hotels = [vid for vid, ven in venues.items() if "hotel" in ven.get("tags", []) or "lodging" in ven.get("tags", [])]
         start_loc = hotels[0] if hotels else next(iter(venues.keys()), "hotel_ximen")
+    days_present = sorted(list({it.get("day", 1) for it in items})) or [1]
+    num_days = max(1, len(days_present))
+
     for t in travelers:
-        mine = sorted((it for it in items if t["name"] in it["mem"]), key=lambda x: x["s"])
-        if "day_bounds" in checks and mine:
-            first, last = mine[0], mine[-1]
-            if first["s"] < day_s + travel_minutes(start_loc, first["vid"], venues):
-                v.append(f"day_bounds: {t['name']} cannot reach {first['vid']} by {to_hhmm(first['s'])} "
-                         f"(day starts {to_hhmm(day_s)} at {start_loc}, "
-                         f"{travel_minutes(start_loc, first['vid'], venues)} min away)")
-            if last["e"] > day_e:
-                v.append(f"day_bounds: {t['name']} ends at {to_hhmm(last['e'])} after day end {to_hhmm(day_e)}")
-        for a, b in zip(mine, mine[1:]):
-            if b["s"] < a["e"]:
-                if "overlap" in checks:
-                    v.append(f"overlap: {t['name']} has {a['vid']} and {b['vid']} overlapping")
-                continue
-            need = travel_minutes(a["vid"], b["vid"], venues)
-            if "transit" in checks and b["s"] - a["e"] < need:
-                v.append(f"transit: {t['name']} {a['vid']} ends {to_hhmm(a['e'])}, {b['vid']} starts "
-                         f"{to_hhmm(b['s'])} but travel takes {need} min")
+        mine_all = [it for it in items if t["name"] in it["mem"]]
+        for d in days_present:
+            mine = sorted((it for it in mine_all if it.get("day", 1) == d), key=lambda x: x["s"])
+            if "day_bounds" in checks and mine:
+                first, last = mine[0], mine[-1]
+                if first["s"] < day_s + travel_minutes(start_loc, first["vid"], venues):
+                    v.append(f"day_bounds: Day {d} {t['name']} cannot reach {first['vid']} by {to_hhmm(first['s'])} "
+                             f"(day starts {to_hhmm(day_s)} at {start_loc}, "
+                             f"{travel_minutes(start_loc, first['vid'], venues)} min away)")
+                if last["e"] > day_e:
+                    v.append(f"day_bounds: Day {d} {t['name']} ends at {to_hhmm(last['e'])} after day end {to_hhmm(day_e)}")
+            for a, b in zip(mine, mine[1:]):
+                if b["s"] < a["e"]:
+                    if "overlap" in checks:
+                        v.append(f"overlap: Day {d} {t['name']} has {a['vid']} and {b['vid']} overlapping")
+                    continue
+                need = travel_minutes(a["vid"], b["vid"], venues)
+                if "transit" in checks and b["s"] - a["e"] < need:
+                    v.append(f"transit: Day {d} {t['name']} {a['vid']} ends {to_hhmm(a['e'])}, {b['vid']} starts "
+                             f"{to_hhmm(b['s'])} but travel takes {need} min")
         if "budget" in checks and "budget" in t:
-            spent = sum(venues[it["vid"]]["cost"] for it in mine)
-            if spent > t["budget"]:
-                v.append(f"budget: {t['name']} spends {spent} > budget {t['budget']}")
+            spent = sum(venues[it["vid"]]["cost"] for it in mine_all)
+            total_budget = t["budget"] * num_days
+            if spent > total_budget:
+                v.append(f"budget: {t['name']} spends {spent} > budget {total_budget}")
+        mine = mine_all
         free = [it for it in mine if not is_anchor(it)]
         if "interests" in checks and req.get("interest_coverage") and t.get("interests"):
             if not any(set(venues[it["vid"]]["tags"]) & set(t["interests"]) for it in free):

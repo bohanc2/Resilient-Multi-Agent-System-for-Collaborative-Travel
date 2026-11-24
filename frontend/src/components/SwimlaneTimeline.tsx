@@ -248,7 +248,46 @@ export default function SwimlaneTimeline({
         </span>
       </div>
 
-      {/* 5. Split Track Columns */}
+      {/* 5. Shared Daytime Activities (if any) */}
+      {sharedItems
+        .filter((it) => it.start < "18:15")
+        .map((item, idx) => {
+          const v = getVenue(item.venue_id, venuesMap);
+          const transit = item.transit_from_prev;
+          return (
+            <div key={`shared-day-${idx}`} className="space-y-1">
+              {transit && (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 text-[10px] text-gray-500 font-mono">
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                  <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 shadow-2xs text-gray-700 font-semibold flex items-center gap-1">
+                    {transit.mode === "walk" ? "🚶 Walk" : transit.mode === "transit" ? "🚇 MRT / Transit" : "🚕 Drive"} · {transit.duration_mins} min
+                  </span>
+                  <span className="text-[10px] text-gray-400 truncate">
+                    from {transit.from_venue_name || "previous stops"}
+                  </span>
+                </div>
+              )}
+              <div
+                onClick={() => onSelectVenue(item.venue_id)}
+                className="minimal-card rounded-xl p-3.5 cursor-pointer hover:border-gray-400"
+              >
+                <div className="flex items-center justify-between gap-3 mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-bold text-gray-900">{item.start} - {item.end}</span>
+                    <h4 className="text-sm font-bold text-gray-900">{v.name}</h4>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-gray-100 text-gray-700 font-semibold">
+                      Shared Stop
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-500 font-semibold">${v.cost} / person</span>
+                </div>
+                <p className="text-xs text-gray-600 line-clamp-1">{v.description}</p>
+              </div>
+            </div>
+          );
+        })}
+
+      {/* 6. Daytime Split Track Columns (< 18:15) */}
       {trackGroups.length > 0 && (
         <div
           className={`grid grid-cols-1 ${
@@ -279,6 +318,8 @@ export default function SwimlaneTimeline({
               rose: "text-rose-700 bg-rose-50",
             };
 
+            const daytimeItems = group.items.filter((it) => it.start < "18:15");
+
             return (
               <div key={gIdx} className="space-y-2.5">
                 <div className={`pb-1.5 border-b-2 ${borderColors[group.color]} flex items-center justify-between`}>
@@ -294,13 +335,12 @@ export default function SwimlaneTimeline({
                 </div>
 
                 <div className="space-y-2">
-                  {group.items.map((item, idx) => (
+                  {daytimeItems.map((item, idx) => (
                     <TimelineCard
                       key={idx}
                       item={item}
                       isSelected={selectedVenueId === item.venue_id}
                       onSelect={() => onSelectVenue(item.venue_id)}
-                      isModified={replanModifiedVenueIds.includes(item.venue_id)}
                       venuesMap={venuesMap}
                       accentColor={group.color}
                     />
@@ -312,7 +352,7 @@ export default function SwimlaneTimeline({
         </div>
       )}
 
-      {/* 6. Regroup Convergence Divider */}
+      {/* 7. Regroup Convergence Divider */}
       <div className="relative my-4 flex items-center justify-center">
         <div className="absolute inset-0 flex items-center" aria-hidden="true">
           <div className="w-full border-t border-dashed border-gray-300" />
@@ -323,14 +363,17 @@ export default function SwimlaneTimeline({
         </div>
       </div>
 
-      {/* 7. Shared Evening Convergence / Dinner Card */}
-      {sharedItems.map((item, idx) => {
+      {/* 8. Shared Evening Convergence / Dinner Card */}
+      {(sharedItems.filter((it) => it.start >= "18:15" && it.start < "19:30").length > 0
+        ? sharedItems.filter((it) => it.start >= "18:15" && it.start < "19:30")
+        : sharedItems.filter((it) => it.start >= "18:00")
+      ).map((item, idx) => {
         const v = getVenue(item.venue_id, venuesMap);
         const isAnchor = Boolean(item.is_custom || item.venue_id.includes("dinner") || item.start >= "18:00");
         const transit = item.transit_from_prev;
 
         return (
-          <div key={idx} className="space-y-1">
+          <div key={`dinner-${idx}`} className="space-y-1">
             {transit && (
               <div className="flex items-center gap-1.5 px-2 py-0.5 text-[10px] text-gray-500 font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
@@ -400,6 +443,87 @@ export default function SwimlaneTimeline({
           </div>
         );
       })}
+
+      {/* 9. Post-Dinner Evening Exploration (19:30+) - Strictly Rendered Below 18:30 Dinner */}
+      {trackGroups.some((g) => g.items.some((it) => it.start >= "19:30")) && (
+        <div className="space-y-3 pt-3 border-t border-gray-200 mt-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-gray-800 uppercase tracking-wide">
+              Post-Dinner Evening Exploration (19:30+)
+            </span>
+            <span className="text-[11px] text-gray-500 font-mono">
+              Nightlife & City Views
+            </span>
+          </div>
+          <div
+            className={`grid grid-cols-1 ${
+              trackGroups.length === 1
+                ? "md:grid-cols-1"
+                : trackGroups.length === 2
+                ? "md:grid-cols-2"
+                : "md:grid-cols-3"
+            } gap-3.5`}
+          >
+            {trackGroups.map((group, gIdx) => {
+              const eveningItems = group.items.filter((it) => it.start >= "19:30");
+              if (eveningItems.length === 0) return <div key={`evening-col-${gIdx}`} />;
+              return (
+                <div key={`evening-col-${gIdx}`} className="space-y-2">
+                  {eveningItems.map((item, idx) => (
+                    <TimelineCard
+                      key={`evening-${idx}`}
+                      item={item}
+                      isSelected={selectedVenueId === item.venue_id}
+                      onSelect={() => onSelectVenue(item.venue_id)}
+                      venuesMap={venuesMap}
+                      accentColor={group.color}
+                    />
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 10. Shared Evening Stops (19:30+) if shared across all */}
+      {sharedItems
+        .filter((it) => it.start >= "19:30")
+        .map((item, idx) => {
+          const v = getVenue(item.venue_id, venuesMap);
+          const transit = item.transit_from_prev;
+          return (
+            <div key={`shared-eve-${idx}`} className="space-y-1">
+              {transit && (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 text-[10px] text-gray-500 font-mono">
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                  <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 shadow-2xs text-gray-700 font-semibold flex items-center gap-1">
+                    {transit.mode === "walk" ? "🚶 Walk" : transit.mode === "transit" ? "🚇 MRT / Transit" : "🚕 Drive"} · {transit.duration_mins} min
+                  </span>
+                  <span className="text-[10px] text-gray-400 truncate">
+                    from {transit.from_venue_name || "previous stops"}
+                  </span>
+                </div>
+              )}
+              <div
+                onClick={() => onSelectVenue(item.venue_id)}
+                className="minimal-card rounded-xl p-3.5 cursor-pointer hover:border-gray-400"
+              >
+                <div className="flex items-center justify-between gap-3 mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-bold text-gray-900">{item.start} - {item.end}</span>
+                    <h4 className="text-sm font-bold text-gray-900">{v.name}</h4>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-gray-100 text-gray-700 font-semibold">
+                      Shared Evening Stop
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-500 font-semibold">${v.cost} / person</span>
+                </div>
+                <p className="text-xs text-gray-600 line-clamp-1">{v.description}</p>
+              </div>
+            </div>
+          );
+        })}
     </div>
   );
 }

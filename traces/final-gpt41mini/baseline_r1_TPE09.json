@@ -1,0 +1,108 @@
+{
+ "task_id": "TPE09",
+ "system": "baseline",
+ "run": 1,
+ "user": "Plan a one-day Sat itinerary in Taipei for 2 people, starting at 09:00 from our hotel (hotel_ximen) and finishing by 21:30.\n- Ben: likes museum, history; only light walking; budget 2500 TWD for the day.\n- Dee: likes art, design; only light walking; budget 2500 TWD for the day.\nLocked booking (cannot change): Din Tai Fung @ Taipei 101 (din_tai_fung_101) 18:30-19:30 for everyone.\nEach person should get at least 2 activities besides locked bookings, including at least one matching their interests.\nWe can split up, but when we regroup for a booking everyone should arrive within 15 minutes of each other.\nCheck the weather forecast; avoid outdoor places when rain is likely.\nBen would love Beitou Hot Spring Museum (beitou_museum) if it is open today; otherwise pick another museum.",
+ "result": {
+  "id": "TPE09",
+  "type": "edge_closed_today",
+  "system": "baseline",
+  "run": 1,
+  "correct": false,
+  "turns": 1,
+  "seconds": 2.43,
+  "tokens": 8203,
+  "tool_calls": 0,
+  "replans": 0,
+  "unsafe": false,
+  "violations": [
+   "hours: fine_arts_museum 09:00-10:30 outside opening hours 09:30-17:30",
+   "day_bounds: Ben cannot reach national_palace_museum by 09:00 (day starts 09:00 at hotel_ximen, 24 min away)",
+   "transit: Ben cks_memorial ends 12:30, hotel_ximen starts 12:30 but travel takes 12 min",
+   "transit: Ben din_tai_fung_101 ends 19:30, hotel_ximen starts 19:30 but travel takes 19 min",
+   "day_bounds: Dee cannot reach fine_arts_museum by 09:00 (day starts 09:00 at hotel_ximen, 14 min away)",
+   "transit: Dee din_tai_fung_101 ends 19:30, hotel_ximen starts 19:30 but travel takes 19 min"
+  ],
+  "error": null
+ },
+ "final_plan": {
+  "feasible": true,
+  "reason": "Beitou Hot Spring Museum is closed today, so alternative museums fitting interests and walking limits were chosen; itinerary respects budgets, walking limits, and locked booking.",
+  "itinerary": [
+   {
+    "venue_id": "national_palace_museum",
+    "start": "09:00",
+    "end": "11:00",
+    "members": [
+     "Ben"
+    ]
+   },
+   {
+    "venue_id": "fine_arts_museum",
+    "start": "09:00",
+    "end": "10:30",
+    "members": [
+     "Dee"
+    ]
+   },
+   {
+    "venue_id": "moca_taipei",
+    "start": "11:00",
+    "end": "12:00",
+    "members": [
+     "Dee"
+    ]
+   },
+   {
+    "venue_id": "cks_memorial",
+    "start": "11:30",
+    "end": "12:30",
+    "members": [
+     "Ben"
+    ]
+   },
+   {
+    "venue_id": "hotel_ximen",
+    "start": "12:30",
+    "end": "18:13",
+    "members": [
+     "Ben",
+     "Dee"
+    ]
+   },
+   {
+    "venue_id": "din_tai_fung_101",
+    "start": "18:30",
+    "end": "19:30",
+    "members": [
+     "Ben",
+     "Dee"
+    ]
+   },
+   {
+    "venue_id": "hotel_ximen",
+    "start": "19:30",
+    "end": "21:30",
+    "members": [
+     "Ben",
+     "Dee"
+    ]
+   }
+  ]
+ },
+ "graph_log": [],
+ "spans": [
+  {
+   "name": "chat",
+   "node": "baseline",
+   "model": "gpt-4.1-mini",
+   "duration_s": 2.428,
+   "input_tokens": 7970,
+   "output_tokens": 233,
+   "input": "{\"role\": \"user\", \"content\": \"DATA (venues, travel minutes, rain probability):\\n{\\\"venues\\\": [{\\\"id\\\": \\\"hotel_ximen\\\", \\\"name\\\": \\\"Hotel (Ximending)\\\", \\\"tags\\\": [\\\"hotel\\\"], \\\"indoor\\\": true, \\\"open\\\": \\\"00:00\\\", \\\"close\\\": \\\"23:59\\\", \\\"closed_days\\\": [], \\\"min_minutes\\\": 0, \\\"cost\\\": 0, \\\"walk_level\\\": 0, \\\"description\\\": \\\"Your hotel. Start and end point of the day.\\\"}, {\\\"id\\\": \\\"din_tai_fung_101\\\", \\\"name\\\": \\\"Din Tai Fung @ Taipei 101\\\", \\\"tags\\\": [\\\"food\\\"], \\\"indoor\\\": true, \\\"open\\\": \\\"11:00\\\", \\\"close\\\": \\\"21:30\\\", \\\"closed_days\\\": [], \\\"min_minutes\\\": 60, \\\"cost\\\": 1200, \\\"walk_level\\\": 0, \\\"description\\\": \\\"Famous dumpling restaurant in the Taipei 101 mall.\\\"}, {\\\"id\\\": \\\"taipei101_observatory\\\", \\\"name\\\": \\\"Taipei 101 Observatory\\\", \\\"tags\\\": [\\\"scenic\\\"], \\\"indoor\\\": true, \\\"open\\\": \\\"10:00\\\", \\\"close\\\": \\\"22:00\\\", \\\"closed_days\\\": [], \\\"min_minutes\\\": 60, \\\"cost\\\": 600, \\\"walk_level\\\": 0, \\\"description\\\": \\\"Indoor observation deck on the 89th floor.\\\"}, {\\\"id\\\": \\\"elephant_mountain\\\", \\\"name\\\": \\\"Elephant Mountain Trail\\\", \\\"tags\\\": [\\\"hiking\\\", \\\"scenic\\\"], \\\"indoor\\\": false, \\\"open\\\": \\\"05:00\\\", \\\"close\\\": \\\"22:00\\\", \\\"closed_days\\\": [], \\\"min_minutes\\\": 90, \\\"cost\\\": 0, \\\"walk_level\\\": 3, \\\"description\\\": \\\"Steep stair trail with a view of Taipei 101.\\\"}, {\\\"id\\\": \\\"yangmingshan\\\", \\\"name\\\": \\\"Yangmingshan Qixing Trail\\\", \\\"tags\\\": [\\\"hiking\\\", \\\"nature\\\"], \\\"indoor\\\": false, \\\"open\\\": \\\"06:00\\\", \\\"close\\\": \\\"18:00\\\", \\\"closed_days\\\": [], \\\"min_minutes\\\": 18...[+19833 chars]",
+   "output": "{\"feasible\":true,\"reason\":\"Beitou Hot Spring Museum is closed today, so alternative museums fitting interests and walking limits were chosen; itinerary respects budgets, walking limits, and locked booking.\",\"itinerary\":[{\"venue_id\":\"national_palace_museum\",\"start\":\"09:00\",\"end\":\"11:00\",\"members\":[\"Ben\"]},{\"venue_id\":\"fine_arts_museum\",\"start\":\"09:00\",\"end\":\"10:30\",\"members\":[\"Dee\"]},{\"venue_id\":\"moca_taipei\",\"start\":\"11:00\",\"end\":\"12:00\",\"members\":[\"Dee\"]},{\"venue_id\":\"cks_memorial\",\"start\":\"11:30\",\"end\":\"12:30\",\"members\":[\"Ben\"]},{\"venue_id\":\"hotel_ximen\",\"start\":\"12:30\",\"end\":\"18:13\",\"members\":[\"Ben\",\"Dee\"]},{\"venue_id\":\"din_tai_fung_101\",\"start\":\"18:30\",\"end\":\"19:30\",\"members\":[\"Ben\",\"Dee\"]},{\"venue_id\":\"hotel_ximen\",\"start\":\"19:30\",\"end\":\"21:30\",\"members\":[\"Ben\",\"Dee\"]}]}",
+   "error": null,
+   "t": 2.428
+  }
+ ]
+}

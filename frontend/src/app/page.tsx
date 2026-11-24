@@ -391,6 +391,7 @@ export default function Home() {
       />
 
       <VenueDetailDrawer
+        isOpen={isDetailOpen}
         venue={selectedVenueId ? getVenue(selectedVenueId, venuesMap) : null}
         onClose={() => setIsDetailOpen(false)}
       />

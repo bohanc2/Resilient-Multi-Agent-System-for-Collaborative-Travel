@@ -5,16 +5,23 @@ import { X, Clock, DollarSign, Footprints, MapPin, Tag, Sun, CloudRain } from "l
 import { VenueInfo } from "../types";
 
 interface VenueDetailDrawerProps {
+  isOpen: boolean;
   venue: VenueInfo | null;
   onClose: () => void;
 }
 
-export default function VenueDetailDrawer({ venue, onClose }: VenueDetailDrawerProps) {
-  if (!venue) return null;
+export default function VenueDetailDrawer({ isOpen, venue, onClose }: VenueDetailDrawerProps) {
+  if (!isOpen || !venue) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-[2px] animate-in fade-in duration-150">
-      <div className="w-full max-w-sm h-full bg-white border-l border-gray-200 p-6 flex flex-col justify-between shadow-xl animate-in slide-in-from-right duration-200">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-[2px] animate-in fade-in duration-150"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm h-full bg-white border-l border-gray-200 p-6 flex flex-col justify-between shadow-xl animate-in slide-in-from-right duration-200"
+      >
         <div className="space-y-6">
           {/* Header */}
           <div className="flex items-start justify-between gap-4 pb-4 border-b border-gray-100">

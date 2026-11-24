@@ -117,10 +117,11 @@ export default function InteractiveMap({
       >
         <MapFlyTo selectedVenueId={selectedVenueId} venuesMap={venuesMap} />
 
-        {/* CartoDB Voyager Light Tiles (Clean, modern Apple Maps style, no API key needed) */}
+        {/* OpenStreetMap Standard Tiles (100% Free, No API Key Required, Clean & Reliable) */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
         />
 
         {/* Polylines for Group Tracks */}

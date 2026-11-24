@@ -70,6 +70,7 @@ export default function Home() {
   const [backendHealthy, setBackendHealthy] = useState(true);
   const [dataMode, setDataMode] = useState<string>("Live API Connected");
   const [venuesMap, setVenuesMap] = useState<Record<string, any>>({});
+  const [streamError, setStreamError] = useState<string | null>(null);
 
   // Replan states
   const [isReplanning, setIsReplanning] = useState(false);
@@ -119,20 +120,23 @@ export default function Home() {
   // Run Plan Stream using SSE
   const runPlanStream = async (targetSetup: Setup) => {
     setIsStreaming(true);
+    setStreamError(null);
     setReplanDiff(null);
     setReplanModifiedVenueIds([]);
     setCurrentEvent({
       event: "start",
       node: "orchestrator",
-      message: "Initializing multi-agent graph, analyzing user preferences...",
+      message: `Initializing multi-agent workflow for ${targetSetup.city.toUpperCase()} (${targetSetup.travelers.length} travelers)...`,
     });
+
+    let receivedFinished = false;
 
     try {
       const response = await fetch(`${API_BASE}/api/plan/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_request: "Plan 6-person group trip in Taipei",
+          user_request: `Plan ${targetSetup.travelers.length}-person group trip in ${targetSetup.city}`,
           setup: targetSetup,
         }),
       });
@@ -160,45 +164,35 @@ export default function Home() {
             const data: AgentStepEvent = JSON.parse(trimmed.slice(6));
             setCurrentEvent(data);
 
+            if (data.event === "error" || (data as any).step === "error") {
+              setStreamError(data.message || "An unexpected error occurred during multi-agent planning.");
+            }
+
             if (data.event === "finished" && data.plan) {
+              receivedFinished = true;
+              setStreamError(null);
               setPlan(data.plan);
               setInitialPlanSnapshot(data.plan);
-              setSelectedVenueId("din_tai_fung_101");
+              if (data.plan.itinerary && data.plan.itinerary.length > 0) {
+                setSelectedVenueId(data.plan.itinerary[0].venue_id);
+              }
             }
           } catch (e) {
             console.error("JSON parse error:", e);
           }
         }
       }
-    } catch (err) {
-      console.warn("Using offline fallback Taipei plan:", err);
-      // Fallback deterministic plan for resilience
-      const fallbackPlan: PlanOutput = {
-        feasible: true,
-        reason: "Offline fallback itinerary generated successfully.",
-        itinerary: [
-          { venue_id: "elephant_mountain", start: "09:30", end: "11:30", members: ["Alice", "Bob"] },
-          { venue_id: "fine_arts_museum", start: "09:30", end: "11:30", members: ["Carol", "Dave"] },
-          { venue_id: "cafe_fujin", start: "09:30", end: "11:30", members: ["Eve", "Frank"] },
-          { venue_id: "yangmingshan", start: "13:30", end: "16:30", members: ["Alice", "Bob"] },
-          { venue_id: "moca_taipei", start: "13:30", end: "15:30", members: ["Carol", "Dave"] },
-          { venue_id: "cafe_simple_kaffa", start: "13:30", end: "15:30", members: ["Eve", "Frank"] },
-          { venue_id: "huashan_park", start: "16:15", end: "17:45", members: ["Carol", "Dave"] },
-          { venue_id: "eslite_xinyi", start: "16:15", end: "17:45", members: ["Eve", "Frank"] },
-          { venue_id: "din_tai_fung_101", start: "18:30", end: "19:30", members: ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank"] },
-          { venue_id: "taipei101_observatory", start: "19:36", end: "20:36", members: ["Alice", "Bob"] },
-        ],
-      };
-      setPlan(fallbackPlan);
-      setInitialPlanSnapshot(fallbackPlan);
-      setCurrentEvent({
-        event: "finished",
-        node: "orchestrator",
-        message: "Itinerary generation complete. Deterministic validation passed.",
-        plan: fallbackPlan,
-      });
+
+      if (!receivedFinished) {
+        setStreamError("Stream closed before itinerary synthesis completed.");
+      }
+    } catch (err: any) {
+      console.warn("Stream error encountered:", err);
+      setStreamError(err?.message || "Failed to connect to backend planning engine.");
     } finally {
-      setIsStreaming(false);
+      if (receivedFinished) {
+        setIsStreaming(false);
+      }
     }
   };
 
@@ -273,6 +267,8 @@ export default function Home() {
     setReplanDiff(null);
     setReplanModifiedVenueIds([]);
     setCurrentEvent(null);
+    setStreamError(null);
+    setIsStreaming(false);
   };
 
   // 5. Select venue and open detail drawer
@@ -314,7 +310,14 @@ export default function Home() {
   // STATE B: Clean Stepper (Minimalist 4-step progress while streaming)
   // =========================================================================
   if (isStreaming) {
-    return <CleanStepper currentEvent={currentEvent} />;
+    return (
+      <CleanStepper
+        currentEvent={currentEvent}
+        errorMessage={streamError}
+        onRetry={() => runPlanStream(setup)}
+        onReset={handleResetToOnboarding}
+      />
+    );
   }
 
   // =========================================================================

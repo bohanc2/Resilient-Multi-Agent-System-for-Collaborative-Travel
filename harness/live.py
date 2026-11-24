@@ -32,7 +32,9 @@ def travel_minutes(a: str, b: str, venues: dict) -> int:
     if _CIRCUIT_OPEN:
         raise RuntimeError("Live OSRM circuit breaker open - falling back to snapshot")
 
-    va, vb = venues[a], venues[b]
+    va, vb = venues.get(a), venues.get(b)
+    if not va or not vb:
+        return 20
     try:
         d = _get(f"https://router.project-osrm.org/route/v1/driving/{va['lon']},{va['lat']};{vb['lon']},{vb['lat']}"
                  "?overview=false", timeout=1.5)

@@ -60,7 +60,8 @@ export interface VenueInfo {
 }
 
 export interface AgentStepEvent {
-  event: "start" | "node_start" | "node_complete" | "finished";
+  event: "start" | "node_start" | "node_complete" | "finished" | "error";
+  step?: string;
   node?: "orchestrator" | "base_planner" | "group_sync" | "checker" | "supervisor" | "contingency";
   message: string;
   plan?: PlanOutput;

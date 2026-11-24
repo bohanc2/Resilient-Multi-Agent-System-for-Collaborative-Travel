@@ -203,51 +203,58 @@ async def plan_stream(req: PlanRequest):
     Stream plan generation progress via SSE:
     orchestrator -> base_planner -> group_sync -> checker -> final plan
     """
-    setup = req.setup
+    # Defensive cross-city setup sanitization
+    from harness.solver import sanitize_setup
+    venues = venues_for(req.setup)
+    setup = sanitize_setup(req.setup, venues)
 
     async def event_generator():
-        # Step 1: Orchestrator initialization
-        city_name = setup.get("city", "taipei").title()
-        n_travelers = len(setup.get("travelers", []))
-        yield f"data: {json.dumps({'event': 'start', 'node': 'orchestrator', 'message': f'Initializing multi-agent planning workflow for {city_name} ({n_travelers} travelers)...'})}\n\n"
-        await asyncio.sleep(0.15)
-
-        # Step 2: Base Planner
-        yield f"data: {json.dumps({'event': 'node_start', 'node': 'base_planner', 'message': 'Base Planner fetching pairwise travel matrix and candidate venues...'})}\n\n"
-        await asyncio.sleep(0.2)
-
-        # Generate plan using the deterministic solver / agent with safety catch
         try:
-            tools = TripTools(setup)
-            plan = solve(setup)
-            if not plan:
-                plan = {"feasible": False, "reason": "No feasible itinerary found under current constraints", "itinerary": []}
+            # Step 1: Orchestrator initialization
+            city_name = setup.get("city", "taipei").title()
+            n_travelers = len(setup.get("travelers", []))
+            yield f"data: {json.dumps({'event': 'start', 'step': 'orchestrator', 'node': 'orchestrator', 'message': f'Initializing multi-agent planning workflow for {city_name} ({n_travelers} travelers)...'})}\n\n"
+            await asyncio.sleep(0.15)
+
+            # Step 2: Base Planner
+            yield f"data: {json.dumps({'event': 'node_start', 'step': 'base_planner', 'node': 'base_planner', 'message': 'Base Planner fetching pairwise travel matrix and candidate venues...'})}\n\n"
+            await asyncio.sleep(0.2)
+
+            # Generate plan using the deterministic solver / agent with safety catch
+            try:
+                tools = TripTools(setup)
+                plan = solve(setup)
+                if not plan:
+                    plan = {"feasible": False, "reason": "No feasible itinerary found under current constraints", "itinerary": []}
+            except Exception as e:
+                plan = {"feasible": False, "reason": f"Solver fallback: {str(e)}", "itinerary": []}
+
+            yield f"data: {json.dumps({'event': 'node_complete', 'step': 'base_planner', 'node': 'base_planner', 'message': 'Initial draft itinerary generated with locked bookings placed.'})}\n\n"
+            await asyncio.sleep(0.15)
+
+            # Step 3: Group Sync
+            yield f"data: {json.dumps({'event': 'node_start', 'step': 'group_sync', 'node': 'group_sync', 'message': 'Group Sync aligning sub-group splits and 18:30 dinner arrival window (<= 15 min)...'})}\n\n"
+            await asyncio.sleep(0.2)
+            yield f"data: {json.dumps({'event': 'node_complete', 'step': 'group_sync', 'node': 'group_sync', 'message': 'Sub-groups synchronized; arrival spread verified.'})}\n\n"
+            await asyncio.sleep(0.15)
+
+            # Step 4: Deterministic Checker
+            yield f"data: {json.dumps({'event': 'node_start', 'step': 'checker', 'node': 'checker', 'message': 'Running deterministic rule checker across opening hours, transit times, and budgets...'})}\n\n"
+            violations = check_plan(plan, setup)
+            await asyncio.sleep(0.15)
+
+            if not violations:
+                yield f"data: {json.dumps({'event': 'node_complete', 'step': 'checker', 'node': 'checker', 'message': 'Checker passed: 0 violations detected.'})}\n\n"
+            else:
+                yield f"data: {json.dumps({'event': 'node_complete', 'step': 'checker', 'node': 'checker', 'message': f'Checker found {len(violations)} warnings (auto-repaired).'})}\n\n"
+
+            await asyncio.sleep(0.15)
+
+            # Step 5: Finished
+            yield f"data: {json.dumps({'event': 'finished', 'step': 'finished', 'node': 'orchestrator', 'message': 'Itinerary successfully generated and verified.', 'plan': plan})}\n\n"
         except Exception as e:
-            plan = {"feasible": False, "reason": f"Solver fallback: {str(e)}", "itinerary": []}
-
-        yield f"data: {json.dumps({'event': 'node_complete', 'node': 'base_planner', 'message': 'Initial draft itinerary generated with locked bookings placed.'})}\n\n"
-        await asyncio.sleep(0.15)
-
-        # Step 3: Group Sync
-        yield f"data: {json.dumps({'event': 'node_start', 'node': 'group_sync', 'message': 'Group Sync aligning sub-group splits and 18:30 dinner arrival window (<= 15 min)...'})}\n\n"
-        await asyncio.sleep(0.2)
-        yield f"data: {json.dumps({'event': 'node_complete', 'node': 'group_sync', 'message': 'Sub-groups synchronized; arrival spread verified.'})}\n\n"
-        await asyncio.sleep(0.15)
-
-        # Step 4: Deterministic Checker
-        yield f"data: {json.dumps({'event': 'node_start', 'node': 'checker', 'message': 'Running deterministic rule checker across opening hours, transit times, and budgets...'})}\n\n"
-        violations = check_plan(plan, setup)
-        await asyncio.sleep(0.15)
-
-        if not violations:
-            yield f"data: {json.dumps({'event': 'node_complete', 'node': 'checker', 'message': 'Checker passed: 0 violations detected.'})}\n\n"
-        else:
-            yield f"data: {json.dumps({'event': 'node_complete', 'node': 'checker', 'message': f'Checker found {len(violations)} warnings (auto-repaired).'})}\n\n"
-
-        await asyncio.sleep(0.15)
-
-        # Step 5: Finished
-        yield f"data: {json.dumps({'event': 'finished', 'node': 'orchestrator', 'message': 'Itinerary successfully generated and verified.', 'plan': plan})}\n\n"
+            # Global error fallback: notify frontend via SSE error event
+            yield f"data: {json.dumps({'event': 'error', 'step': 'error', 'node': 'orchestrator', 'message': str(e)})}\n\n"
 
     return StreamingResponse(
         event_generator(),
@@ -267,7 +274,9 @@ def plan_replan(req: ReplanRequest):
     Triggers contingency sub-agent repair and returns before/after Diff status.
     """
     current_plan = req.current_plan
-    setup = dict(req.setup)
+    from harness.solver import sanitize_setup
+    venues = venues_for(req.setup)
+    setup = sanitize_setup(dict(req.setup), venues)
     event = req.event
 
     # 1. Update weather in setup with rain spike

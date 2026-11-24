@@ -20,8 +20,77 @@ def _groupings(travelers):
         yield [[n] for n in names]
 
 
+def sanitize_setup(setup: dict, venues: dict) -> dict:
+    """Ensure start_location and anchors belong to the current city's venues."""
+    setup = dict(setup)
+    city = setup.get("city", "taipei").lower()
+
+    # 1. Sanitize start_location
+    start_loc = setup.get("start_location")
+    if not start_loc or start_loc not in venues:
+        from .cities import CITY_INFO
+        if city in CITY_INFO and CITY_INFO[city]["hotel"] in venues:
+            setup["start_location"] = CITY_INFO[city]["hotel"]
+        else:
+            hotels = [vid for vid, v in venues.items() if "hotel" in v.get("tags", []) or "lodging" in v.get("tags", [])]
+            setup["start_location"] = hotels[0] if hotels else next(iter(venues.keys()), "hotel_ximen")
+
+    # 2. Sanitize anchors
+    if "anchors" in setup:
+        sanitized_anchors = []
+        from .cities import CITY_INFO
+        city_dinner = CITY_INFO.get(city, {}).get("dinner")
+
+        dining_candidates = [
+            vid for vid, v in venues.items()
+            if any(t in v.get("tags", []) for t in ["food", "restaurant", "dining", "cafe"])
+            and vid != setup["start_location"]
+        ]
+        if not dining_candidates:
+            dining_candidates = [vid for vid in venues if vid != setup["start_location"]]
+
+        for idx, a in enumerate(setup["anchors"]):
+            a_copy = dict(a)
+            vid = a_copy.get("venue_id")
+            if not vid or vid not in venues:
+                if city_dinner and city_dinner in venues:
+                    replacement_vid = city_dinner
+                elif dining_candidates:
+                    replacement_vid = dining_candidates[idx % len(dining_candidates)]
+                else:
+                    replacement_vid = next(iter(venues.keys()))
+                a_copy["venue_id"] = replacement_vid
+            sanitized_anchors.append(a_copy)
+        setup["anchors"] = sanitized_anchors
+
+    # 3. Sanitize must_visit and preserve_venues
+    if "requirements" in setup:
+        req = dict(setup["requirements"])
+        if "must_visit" in req:
+            req["must_visit"] = [vid for vid in req["must_visit"] if vid in venues]
+        if "preserve_venues" in req:
+            req["preserve_venues"] = [p for p in req["preserve_venues"] if p.get("venue_id") in venues]
+        setup["requirements"] = req
+
+    # 4. Currency / budget auto-scaling guard for cross-city requests
+    from .cities import CITY_INFO
+    if city in CITY_INFO and "travelers" in setup:
+        factor = CITY_INFO[city]["budget_factor"]
+        if city == "tokyo" and any(t.get("budget", 0) < 3000 for t in setup["travelers"]):
+            for t in setup["travelers"]:
+                if t.get("budget", 0) < 3000:
+                    t["budget"] = int(t.get("budget", 2000) * factor)
+        elif city in ("paris", "nyc", "seattle") and any(t.get("budget", 0) > 500 for t in setup["travelers"]):
+            for t in setup["travelers"]:
+                if t.get("budget", 0) > 500:
+                    t["budget"] = max(100, int(t.get("budget", 2000) * factor))
+
+    return setup
+
+
 def _solve_group(group, setup, n_groups):
     venues = venues_for(setup)
+    setup = sanitize_setup(setup, venues)
     req = setup.get("requirements", {})
     travelers = [t for t in setup["travelers"] if t["name"] in group]
     max_walk = min(t.get("max_walk", 3) for t in travelers)
@@ -111,11 +180,16 @@ def _solve_group(group, setup, n_groups):
                 return r
         return None
 
-    return dfs(setup.get("start_location", "hotel_ximen"), to_min(setup.get("day_start", "09:00")), 0, [], set())
+    start_loc = setup.get("start_location")
+    if not start_loc or start_loc not in venues:
+        start_loc = next(iter(venues.keys()), "hotel_ximen")
+    return dfs(start_loc, to_min(setup.get("day_start", "09:00")), 0, [], set())
 
 
 def solve(setup: dict):
     """Return a valid plan or None."""
+    venues = venues_for(setup)
+    setup = sanitize_setup(setup, venues)
     for grouping in _groupings(setup["travelers"]):
         parts = []
         for g in grouping:

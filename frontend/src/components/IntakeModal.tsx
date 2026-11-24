@@ -12,6 +12,47 @@ interface IntakeModalProps {
   isStreaming: boolean;
 }
 
+const CITY_DEFAULTS: Record<
+  string,
+  { hotel: string; dinnerVenue: string; dinnerName: string; currency: string; defaultBudget: number }
+> = {
+  taipei: {
+    hotel: "hotel_ximen",
+    dinnerVenue: "din_tai_fung_101",
+    dinnerName: "Din Tai Fung (Taipei 101)",
+    currency: "TWD",
+    defaultBudget: 2000,
+  },
+  paris: {
+    hotel: "par_hotel",
+    dinnerVenue: "par_chartier",
+    dinnerName: "Bouillon Chartier (Paris)",
+    currency: "EUR",
+    defaultBudget: 150,
+  },
+  tokyo: {
+    hotel: "tky_hotel",
+    dinnerVenue: "tky_gonpachi",
+    dinnerName: "Gonpachi Nishi-Azabu (Tokyo)",
+    currency: "JPY",
+    defaultBudget: 16000,
+  },
+  nyc: {
+    hotel: "nyc_hotel",
+    dinnerVenue: "nyc_katz",
+    dinnerName: "Katz's Delicatessen (NYC)",
+    currency: "USD",
+    defaultBudget: 160,
+  },
+  seattle: {
+    hotel: "sea_hotel",
+    dinnerVenue: "sea_ivars",
+    dinnerName: "Ivar's Acres of Clams (Seattle)",
+    currency: "USD",
+    defaultBudget: 160,
+  },
+};
+
 export default function IntakeModal({
   isOpen,
   onClose,
@@ -22,6 +63,31 @@ export default function IntakeModal({
   const [currentSetup, setCurrentSetup] = useState<Setup>(setup);
 
   if (!isOpen) return null;
+
+  const handleCityChange = (cityName: string) => {
+    const normalized = cityName.toLowerCase().trim();
+    const cityConfig = CITY_DEFAULTS[normalized];
+    const newHotel = cityConfig ? cityConfig.hotel : `${normalized}_hotel`;
+    const newDinnerVenue = cityConfig ? cityConfig.dinnerVenue : "";
+
+    const updatedAnchors = currentSetup.anchors.map((a) => ({
+      ...a,
+      venue_id: newDinnerVenue,
+    }));
+
+    const updatedTravelers = currentSetup.travelers.map((t) => ({
+      ...t,
+      budget: cityConfig ? cityConfig.defaultBudget : t.budget,
+    }));
+
+    setCurrentSetup({
+      ...currentSetup,
+      city: normalized,
+      start_location: newHotel,
+      travelers: updatedTravelers,
+      anchors: updatedAnchors,
+    });
+  };
 
   const handleTravelerChange = (index: number, field: keyof Traveler, value: any) => {
     const updated = [...currentSetup.travelers];
@@ -72,16 +138,16 @@ export default function IntakeModal({
               <input
                 type="text"
                 value={currentSetup.city}
-                onChange={(e) => setCurrentSetup({ ...currentSetup, city: e.target.value.toLowerCase() })}
-                placeholder="Enter city name (e.g. taipei, tokyo, kyoto, paris, seattle...)"
+                onChange={(e) => handleCityChange(e.target.value)}
+                placeholder="Enter city name (e.g. taipei, paris, tokyo, nyc, seattle...)"
                 className="flex-1 px-3 py-1.5 rounded-lg bg-white text-gray-900 border border-gray-300 text-xs focus:outline-none focus:border-gray-900"
               />
               <div className="flex items-center gap-1">
-                {["taipei", "kyoto", "tokyo", "paris"].map((c) => (
+                {["taipei", "paris", "tokyo", "nyc", "seattle"].map((c) => (
                   <button
                     key={c}
                     type="button"
-                    onClick={() => setCurrentSetup({ ...currentSetup, city: c })}
+                    onClick={() => handleCityChange(c)}
                     className={`px-2 py-1 rounded text-[11px] font-medium transition-all ${
                       currentSetup.city.toLowerCase() === c
                         ? "bg-gray-900 text-white"
@@ -111,7 +177,9 @@ export default function IntakeModal({
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[10px] text-gray-500 block mb-0.5">Budget (TWD)</label>
+                      <label className="text-[10px] text-gray-500 block mb-0.5">
+                        Budget ({CITY_DEFAULTS[currentSetup.city.toLowerCase()]?.currency || "Local"})
+                      </label>
                       <input
                         type="number"
                         value={t.budget}
@@ -162,7 +230,7 @@ export default function IntakeModal({
               <span>Locked Booking (Hard Anchor - Dinner Block)</span>
             </div>
             <p className="text-[11px] text-amber-800 leading-relaxed">
-              Fixed 18:30 - 19:30 Din Tai Fung (Taipei 101), all 6 members attending. Multi-agent solver guarantees arrival convergence ≤ 15 min.
+              Fixed 18:30 - 19:30 {CITY_DEFAULTS[currentSetup.city.toLowerCase()]?.dinnerName || "City Center Dining Landmark"}, all {currentSetup.travelers.length} members attending. Multi-agent solver guarantees arrival convergence ≤ 15 min.
             </p>
           </div>
 

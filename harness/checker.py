@@ -98,6 +98,9 @@ def check_plan(plan, setup: dict, checks: list[str] | None = None) -> list[str]:
     # ---- per-traveler timeline ----
     day_s, day_e = to_min(setup.get("day_start", "09:00")), to_min(setup.get("day_end", "22:00"))
     start_loc = setup.get("start_location", "hotel_ximen")
+    if start_loc not in venues:
+        hotels = [vid for vid, ven in venues.items() if "hotel" in ven.get("tags", []) or "lodging" in ven.get("tags", [])]
+        start_loc = hotels[0] if hotels else next(iter(venues.keys()), "hotel_ximen")
     for t in travelers:
         mine = sorted((it for it in items if t["name"] in it["mem"]), key=lambda x: x["s"])
         if "day_bounds" in checks and mine:

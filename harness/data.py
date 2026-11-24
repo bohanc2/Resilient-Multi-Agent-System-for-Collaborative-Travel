@@ -160,7 +160,13 @@ def travel_minutes(a: str, b: str, venues: dict | None = None) -> int:
             # Fallback to Euclidean estimation on timeout or error
             pass
 
-    va, vb = venues[a], venues[b]
+    # 3. Safe fallback & coordinates lookup
+    va = venues.get(a)
+    vb = venues.get(b)
+    if not va or not vb:
+        # Cross-city residual or unknown venue: return reasonable default metropolitan transit time
+        return 20
+
     lat1, lon1, lat2, lon2 = map(math.radians, (va["lat"], va["lon"], vb["lat"], vb["lon"]))
     d = 2 * 6371 * math.asin(math.sqrt(math.sin((lat2 - lat1) / 2) ** 2 +
                                        math.cos(lat1) * math.cos(lat2) * math.sin((lon2 - lon1) / 2) ** 2))

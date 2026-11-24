@@ -119,17 +119,18 @@ TAIPEI_6P_PRESET = {
     "description": "6 friends with diverse interests exploring Taipei:\n- Hiking Track (Alice, Bob): Outdoor & scenic enthusiasts, budget 2000 TWD, Elephant Mountain Trail.\n- Art Track (Carol, Dave): Modern art & design enthusiasts, budget 2500 TWD, TFAM & MoCA.\n- Cafe & Culture Track (Eve, Frank): Specialty coffee & bookstores, budget 2200 TWD, Huashan & Simple Kaffa.\nRegroup at 18:30 at Din Tai Fung (Taipei 101) with convergence gap strictly within 15 minutes.",
     "setup": {
         "city": "taipei",
+        "days": 2,
         "weekday": "Sat",
-        "day_start": "09:00",
-        "day_end": "21:30",
+        "day_start": "09:30",
+        "day_end": "21:00",
         "start_location": "hotel_ximen",
         "travelers": [
             {"name": "Alice", "interests": ["hiking", "scenic"], "max_walk": 3, "budget": 2000},
             {"name": "Bob", "interests": ["hiking", "nature"], "max_walk": 3, "budget": 2000},
-            {"name": "Carol", "interests": ["museum", "art"], "max_walk": 1, "budget": 2500},
+            {"name": "Carol", "interests": ["art", "museum"], "max_walk": 1, "budget": 2500},
             {"name": "Dave", "interests": ["art", "design"], "max_walk": 1, "budget": 2500},
-            {"name": "Eve", "interests": ["cafe", "shopping"], "max_walk": 0, "budget": 2200},
-            {"name": "Frank", "interests": ["cafe", "books"], "max_walk": 0, "budget": 2200},
+            {"name": "Eve", "interests": ["cafe", "shopping"], "max_walk": 1, "budget": 2200},
+            {"name": "Frank", "interests": ["cafe", "books"], "max_walk": 1, "budget": 2200},
         ],
         "anchors": [
             {
@@ -195,6 +196,8 @@ async def get_venues(city: str = "taipei"):
             "open": v.get("open", "09:00"),
             "close": v.get("close", "21:00"),
             "min_minutes": v.get("min_minutes", 60),
+            "duration_mins": v.get("duration_mins", max(45, min(120, v.get("min_minutes", 60)))),
+            "time_suitability": v.get("time_suitability", "any"),
             "description": v.get("description", "")
         }
         for vid, v in vs.items()

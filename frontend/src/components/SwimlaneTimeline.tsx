@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Lock, Clock, Footprints, Users, MapPin, CheckCheck, Sun, CloudRain, Plus, MessageSquare, Calendar } from "lucide-react";
+import { Lock, Clock, Footprints, Users, MapPin, CheckCheck, Sun, CloudRain, Plus, MessageSquare, Calendar, ExternalLink } from "lucide-react";
 import { ItineraryItem, PlanOutput, Traveler } from "../types";
 import { getVenue } from "../lib/venues";
 
@@ -49,9 +49,11 @@ export default function SwimlaneTimeline({
 
   // 1. Identify shared activities vs. split sub-tracks for the current day
   const isShared = (it: ItineraryItem) => {
+    if (it.is_shared) return true;
     if (it.members.length >= totalTravelers) return true;
+    if (it.venue_id === "din_tai_fung_101" || it.venue_id.includes("dinner") || (it.venue_id.includes("market") && it.start >= "18:00")) return true;
     const v = getVenue(it.venue_id, venuesMap);
-    if (v.tags?.includes("dining") && it.start >= "18:00") return true;
+    if ((v.tags?.includes("dining") || v.tags?.includes("food") || v.tags?.includes("night_market")) && it.start >= "18:00") return true;
     return false;
   };
 
@@ -65,7 +67,10 @@ export default function SwimlaneTimeline({
     const key = `${it.venue_id}_${it.start}_${it.end}`;
     if (!seenSharedKeys.has(key)) {
       seenSharedKeys.add(key);
-      sharedItems.push(it);
+      sharedItems.push({
+        ...it,
+        members: travelers.map((t) => t.name), // Guarantee all members represented on shared full-width card
+      });
     }
   }
 
@@ -322,7 +327,6 @@ export default function SwimlaneTimeline({
       {sharedItems.map((item, idx) => {
         const v = getVenue(item.venue_id, venuesMap);
         const isAnchor = Boolean(item.is_custom || item.venue_id.includes("dinner") || item.start >= "18:00");
-        const isModified = replanModifiedVenueIds.includes(item.venue_id);
         const transit = item.transit_from_prev;
 
         return (
@@ -331,7 +335,7 @@ export default function SwimlaneTimeline({
               <div className="flex items-center gap-1.5 px-2 py-0.5 text-[10px] text-gray-500 font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
                 <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 shadow-2xs text-gray-700 font-semibold flex items-center gap-1">
-                  {transit.mode === "walk" ? "🚶 Walk" : "🚕 Drive"} · {transit.duration_mins} min
+                  {transit.mode === "walk" ? "🚶 Walk" : transit.mode === "transit" ? "🚇 MRT / Transit" : "🚕 Drive"} · {transit.duration_mins} min
                 </span>
                 <span className="text-[10px] text-gray-400 truncate">
                   reunion transit from {transit.from_venue_name || "afternoon stops"}
@@ -344,8 +348,6 @@ export default function SwimlaneTimeline({
               className={`rounded-xl p-4 cursor-pointer transition-all ${
                 isAnchor
                   ? "border-2 border-gray-900 bg-white shadow-sm hover:border-black"
-                  : isModified
-                  ? "replan-soft-highlight"
                   : "minimal-card hover:border-gray-400"
               }`}
             >
@@ -360,17 +362,25 @@ export default function SwimlaneTimeline({
                   {isAnchor && (
                     <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-900 text-white text-[10px] font-bold">
                       <Lock className="w-3 h-3 text-amber-400" />
-                      Evening Dinner Convergence
-                    </span>
-                  )}
-                  {isModified && (
-                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500 text-white">
-                      MODIFIED
+                      Shared Group Gathering
                     </span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-gray-500">
+                <div className="flex items-center gap-3 text-xs text-gray-500">
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                      `${v.name} ${v.city || ""}`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-semibold transition-colors"
+                    title="Open in Google Maps"
+                  >
+                    <ExternalLink className="w-3 h-3 text-gray-500" />
+                    <span>Maps</span>
+                  </a>
                   <span className="font-semibold text-gray-800">${v.cost} / person</span>
                   <span>•</span>
                   <span>All {totalTravelers} Members</span>
@@ -382,7 +392,7 @@ export default function SwimlaneTimeline({
               </p>
 
               {item.note && (
-                <p className="text-[11px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded mt-1.5 inline-block">
+                <p className="text-[11px] text-gray-700 bg-gray-100 px-2 py-0.5 rounded mt-1.5 inline-block">
                   Note: {item.note}
                 </p>
               )}
@@ -420,7 +430,7 @@ function TimelineCard({
         <div className="flex items-center gap-1.5 px-1 py-0.5 text-[10px] text-gray-500 font-mono">
           <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
           <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 shadow-2xs text-gray-700 font-semibold flex items-center gap-1">
-            {transit.mode === "walk" ? "🚶 Walk" : "🚕 Drive"} · {transit.duration_mins} min
+            {transit.mode === "walk" ? "🚶 Walk" : transit.mode === "transit" ? "🚇 MRT / Transit" : "🚕 Drive"} · {transit.duration_mins} min
           </span>
           <span className="text-[10px] text-gray-400 truncate max-w-[120px]">
             from {transit.from_venue_name || "previous"}
@@ -432,9 +442,7 @@ function TimelineCard({
       <div
         onClick={onSelect}
         className={`minimal-card rounded-lg p-2.5 cursor-pointer select-none transition-all ${
-          isModified
-            ? "replan-soft-highlight"
-            : isSelected
+          isSelected
             ? "border-gray-900 ring-1 ring-gray-900 shadow-sm"
             : "hover:border-gray-300"
         }`}
@@ -445,16 +453,23 @@ function TimelineCard({
             <Clock className="w-3 h-3 text-gray-400" />
             {item.start} - {item.end}
           </span>
-          <div className="flex items-center gap-1">
-            {isModified && (
-              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500 text-white">
-                MODIFIED
-              </span>
-            )}
+          <div className="flex items-center gap-1.5">
             <span className="text-[10px] font-medium text-gray-500 flex items-center gap-0.5">
               {v.indoor ? <Sun className="w-2.5 h-2.5 text-gray-400" /> : <CloudRain className="w-2.5 h-2.5 text-gray-400" />}
               {v.indoor ? "Indoor" : "Outdoor"}
             </span>
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                `${v.name} ${v.city || ""}`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="p-0.5 text-gray-400 hover:text-gray-900 rounded transition-colors"
+              title="Search on Google Maps"
+            >
+              <ExternalLink className="w-3 h-3" />
+            </a>
           </div>
         </div>
 
@@ -474,7 +489,7 @@ function TimelineCard({
         </div>
 
         {item.note && (
-          <div className="mt-1 flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50/70 px-1.5 py-0.5 rounded truncate">
+          <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded truncate">
             <MessageSquare className="w-2.5 h-2.5" />
             <span className="truncate">{item.note}</span>
           </div>

@@ -21,6 +21,7 @@ export interface Requirements {
 export interface TransitInfo {
   mode: "walk" | "drive" | "transit";
   duration_mins: number;
+  distance_km?: number;
   from_venue_id?: string;
   from_venue_name?: string;
 }
@@ -46,6 +47,7 @@ export interface ItineraryItem {
   day?: number;
   note?: string;
   is_custom?: boolean;
+  is_shared?: boolean;
   transit_from_prev?: TransitInfo;
 }
 
@@ -71,6 +73,9 @@ export interface VenueInfo {
   open: string;
   close: string;
   min_minutes: number;
+  duration_mins?: number;
+  time_suitability?: string;
+  city?: string;
   description: string;
 }
 

@@ -66,7 +66,7 @@ def check_plan(plan, setup: dict, checks: list[str] | None = None) -> list[str]:
                 if it["vid"] == a["venue_id"] and it["s"] == to_min(a["start"]) and it["e"] == to_min(a["end"]):
                     got |= set(it["mem"])
             if not need <= got:
-                v.append(f"anchors: locked booking {a['id']} ({a['venue_id']} {a['start']}-{a['end']}) "
+                v.append(f"anchors: locked booking {a.get('id', a.get('venue_id'))} ({a['venue_id']} {a['start']}-{a['end']}) "
                          f"missing for {sorted(need - got)}")
 
     # ---- per-item checks ----
@@ -149,7 +149,7 @@ def check_plan(plan, setup: dict, checks: list[str] | None = None) -> list[str]:
                 else:
                     arrivals.append(to_min(a["start"]))
             if len(arrivals) > 1 and max(arrivals) - min(arrivals) > gap_max:
-                v.append(f"regroup_gap: arrivals at {a['id']} spread {max(arrivals) - min(arrivals)} min "
+                v.append(f"regroup_gap: arrivals at {a.get('id', a.get('venue_id'))} spread {max(arrivals) - min(arrivals)} min "
                          f"(earliest {to_hhmm(min(arrivals))}, latest {to_hhmm(max(arrivals))}) > {gap_max}")
 
     # ---- keep unaffected parts of a draft plan ----

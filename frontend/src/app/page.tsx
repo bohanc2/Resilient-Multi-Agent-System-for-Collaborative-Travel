@@ -320,10 +320,6 @@ export default function Home() {
         itinerary: updatedItinerary,
       };
     });
-
-    setReplanModifiedVenueIds((prev) =>
-      prev.includes(venueId) ? prev : [...prev, venueId]
-    );
   };
 
   // 8. Add Custom Stop

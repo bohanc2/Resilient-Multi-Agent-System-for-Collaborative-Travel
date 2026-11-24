@@ -157,13 +157,17 @@ TAIPEI_6P_PRESET = {
 
 @app.get("/api/health")
 def health_check():
-    live_info = check_live_status()
+    """Instant in-memory healthcheck (sub-millisecond, zero network probe)."""
     return {
-        "status": "healthy",
+        "status": "ok",
+        "live_mode": USE_LIVE_APIS,
+        "data_mode": "Live API Connected" if USE_LIVE_APIS else "Fallback Snapshot Mode",
+        "providers": {
+            "routing": "OSRM Live (router.project-osrm.org)" if USE_LIVE_APIS else "OSRM Snapshot (travel_*.json)",
+            "weather": "Open-Meteo Live (api.open-meteo.com)" if USE_LIVE_APIS else "Snapshot Scenario Weather",
+            "venues": "Google Places API" if bool(os.environ.get("GOOGLE_PLACES_API_KEY", "").strip()) else "OpenStreetMap Nominatim + Curated Snapshot"
+        },
         "service": "collaborative-travel-multi-agent",
-        "use_live_apis": USE_LIVE_APIS,
-        "data_mode": live_info["data_mode"],
-        "providers": live_info["providers"],
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
     }
 
@@ -175,9 +179,9 @@ def get_taipei_preset():
 
 
 @app.get("/api/venues")
-def get_venues(city: str = "taipei"):
+async def get_venues(city: str = "taipei"):
     """Return all venues for the requested city with coordinates, tags, hours, and costs."""
-    vs = venues_for({"city": city})
+    vs = await asyncio.to_thread(venues_for, {"city": city})
     return {
         vid: {
             "id": vid,
@@ -203,10 +207,10 @@ async def plan_stream(req: PlanRequest):
     Stream plan generation progress via SSE:
     orchestrator -> base_planner -> group_sync -> checker -> final plan
     """
-    # Defensive cross-city setup sanitization
+    # Defensive cross-city setup sanitization off-thread
     from harness.solver import sanitize_setup
-    venues = venues_for(req.setup)
-    setup = sanitize_setup(req.setup, venues)
+    venues = await asyncio.to_thread(venues_for, req.setup)
+    setup = await asyncio.to_thread(sanitize_setup, req.setup, venues)
 
     async def event_generator():
         try:
@@ -214,41 +218,41 @@ async def plan_stream(req: PlanRequest):
             city_name = setup.get("city", "taipei").title()
             n_travelers = len(setup.get("travelers", []))
             yield f"data: {json.dumps({'event': 'start', 'step': 'orchestrator', 'node': 'orchestrator', 'message': f'Initializing multi-agent planning workflow for {city_name} ({n_travelers} travelers)...'})}\n\n"
-            await asyncio.sleep(0.15)
+            await asyncio.sleep(0.1)
 
             # Step 2: Base Planner
             yield f"data: {json.dumps({'event': 'node_start', 'step': 'base_planner', 'node': 'base_planner', 'message': 'Base Planner fetching pairwise travel matrix and candidate venues...'})}\n\n"
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(0.1)
 
-            # Generate plan using the deterministic solver / agent with safety catch
+            # Generate plan using the deterministic solver / agent off-thread
             try:
-                tools = TripTools(setup)
-                plan = solve(setup)
+                tools = await asyncio.to_thread(TripTools, setup)
+                plan = await asyncio.to_thread(solve, setup)
                 if not plan:
                     plan = {"feasible": False, "reason": "No feasible itinerary found under current constraints", "itinerary": []}
             except Exception as e:
                 plan = {"feasible": False, "reason": f"Solver fallback: {str(e)}", "itinerary": []}
 
             yield f"data: {json.dumps({'event': 'node_complete', 'step': 'base_planner', 'node': 'base_planner', 'message': 'Initial draft itinerary generated with locked bookings placed.'})}\n\n"
-            await asyncio.sleep(0.15)
+            await asyncio.sleep(0.1)
 
             # Step 3: Group Sync
             yield f"data: {json.dumps({'event': 'node_start', 'step': 'group_sync', 'node': 'group_sync', 'message': 'Group Sync aligning sub-group splits and 18:30 dinner arrival window (<= 15 min)...'})}\n\n"
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(0.1)
             yield f"data: {json.dumps({'event': 'node_complete', 'step': 'group_sync', 'node': 'group_sync', 'message': 'Sub-groups synchronized; arrival spread verified.'})}\n\n"
-            await asyncio.sleep(0.15)
+            await asyncio.sleep(0.1)
 
             # Step 4: Deterministic Checker
             yield f"data: {json.dumps({'event': 'node_start', 'step': 'checker', 'node': 'checker', 'message': 'Running deterministic rule checker across opening hours, transit times, and budgets...'})}\n\n"
-            violations = check_plan(plan, setup)
-            await asyncio.sleep(0.15)
+            violations = await asyncio.to_thread(check_plan, plan, setup)
+            await asyncio.sleep(0.1)
 
             if not violations:
                 yield f"data: {json.dumps({'event': 'node_complete', 'step': 'checker', 'node': 'checker', 'message': 'Checker passed: 0 violations detected.'})}\n\n"
             else:
                 yield f"data: {json.dumps({'event': 'node_complete', 'step': 'checker', 'node': 'checker', 'message': f'Checker found {len(violations)} warnings (auto-repaired).'})}\n\n"
 
-            await asyncio.sleep(0.15)
+            await asyncio.sleep(0.1)
 
             # Step 5: Finished
             yield f"data: {json.dumps({'event': 'finished', 'step': 'finished', 'node': 'orchestrator', 'message': 'Itinerary successfully generated and verified.', 'plan': plan})}\n\n"
@@ -267,12 +271,7 @@ async def plan_stream(req: PlanRequest):
     )
 
 
-@app.post("/api/plan/replan")
-def plan_replan(req: ReplanRequest):
-    """
-    Handle localized sudden weather emergency (e.g. 14:00 rain spike):
-    Triggers contingency sub-agent repair and returns before/after Diff status.
-    """
+def _compute_replan(req: ReplanRequest) -> dict:
     current_plan = req.current_plan
     from harness.solver import sanitize_setup
     venues = venues_for(req.setup)
@@ -416,6 +415,16 @@ def plan_replan(req: ReplanRequest):
         "diff": diff_summary,
         "updated_plan": updated_plan
     }
+
+
+@app.post("/api/plan/replan")
+async def plan_replan(req: ReplanRequest):
+    """
+    Handle localized sudden weather emergency (e.g. 14:00 rain spike):
+    Triggers contingency sub-agent repair and returns before/after Diff status.
+    Runs off-thread to avoid blocking the Uvicorn asyncio event loop.
+    """
+    return await asyncio.to_thread(_compute_replan, req)
 
 
 if __name__ == "__main__":

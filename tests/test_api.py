@@ -129,7 +129,7 @@ def test_health_and_venues_endpoints():
     res = client.get("/api/health")
     assert res.status_code == 200
     data = res.json()
-    assert data["status"] == "healthy"
+    assert data["status"] in ("healthy", "ok")
     assert "data_mode" in data
     assert "providers" in data
     print(f"✓ GET /api/health verified: mode={data['data_mode']}, providers={data['providers']}")

@@ -26,5 +26,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:${PORT}/api/health || exit 1
 
-# Start FastAPI backend with dynamic $PORT binding
-CMD ["sh", "-c", "uvicorn backend.api:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Start FastAPI backend with dynamic $PORT binding and multi-worker concurrency
+CMD ["sh", "-c", "uvicorn backend.api:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2"]

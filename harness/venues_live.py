@@ -56,7 +56,7 @@ def fetch_from_google_places(city: str, api_key: str, limit: int = 12) -> Dict[s
         url = f"https://maps.googleapis.com/maps/api/place/textsearch/json?query={urllib.parse.quote(query)}&key={api_key}"
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "AuraTravelPlanner/2.0"})
-            with urllib.request.urlopen(req, timeout=4.0) as r:
+            with urllib.request.urlopen(req, timeout=2.5) as r:
                 data = json.load(r)
                 for item in data.get("results", [])[:4]:
                     name = item.get("name", "Unknown Venue")
@@ -113,7 +113,7 @@ def fetch_from_osm_nominatim(city: str, limit: int = 12) -> Dict[str, Dict[str, 
         url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(q)}&format=json&limit=6&addressdetails=1"
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "AuraTravelPlanner/2.0 (Resilient-Multi-Agent)"})
-            with urllib.request.urlopen(req, timeout=4.0) as r:
+            with urllib.request.urlopen(req, timeout=2.5) as r:
                 results = json.load(r)
                 for item in results:
                     disp_name = item.get("display_name", "")

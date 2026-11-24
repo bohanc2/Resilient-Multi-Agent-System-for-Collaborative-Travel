@@ -142,13 +142,13 @@ export default function InteractiveMap({
 
           if (item.members.includes("Alice")) {
             pinColor = "#10b981";
-            label = "山";
+            label = "H";
           } else if (item.members.includes("Carol")) {
             pinColor = "#6366f1";
-            label = "藝";
+            label = "A";
           } else if (item.members.includes("Eve")) {
             pinColor = "#f59e0b";
-            label = "咖";
+            label = "C";
           }
 
           if (item.venue_id === "din_tai_fung_101") {
@@ -173,13 +173,13 @@ export default function InteractiveMap({
                       {item.start} - {item.end}
                     </span>
                     <span>•</span>
-                    <span>{venue.indoor ? "室內" : "室外"}</span>
+                    <span>{venue.indoor ? "Indoor" : "Outdoor"}</span>
                   </div>
                   <p className="text-xs text-slate-700 leading-tight">
                     {venue.description}
                   </p>
                   <div className="text-[11px] font-semibold text-sky-700 pt-1">
-                    成員: {item.members.join(", ")}
+                    Members: {item.members.join(", ")}
                   </div>
                 </div>
               </Popup>
@@ -190,23 +190,23 @@ export default function InteractiveMap({
 
       {/* Floating Map Legend */}
       <div className="absolute bottom-4 left-4 z-[400] glass-card px-3 py-2 rounded-xl text-xs space-y-1.5 border border-white/10 shadow-lg pointer-events-none">
-        <span className="font-bold text-slate-300 block text-[11px]">景點與移動軌跡</span>
+        <span className="font-bold text-slate-300 block text-[11px]">Venues & Route Tracks</span>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 text-emerald-300">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-            <span>登山組</span>
+            <span>Hiking</span>
           </div>
           <div className="flex items-center gap-1.5 text-indigo-300">
             <span className="w-2.5 h-2.5 rounded-full bg-indigo-400" />
-            <span>藝文組</span>
+            <span>Art</span>
           </div>
           <div className="flex items-center gap-1.5 text-amber-300">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-            <span>咖啡組</span>
+            <span>Cafe</span>
           </div>
           <div className="flex items-center gap-1.5 text-yellow-300">
             <span className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
-            <span>鎖定晚餐</span>
+            <span>Locked Dinner</span>
           </div>
         </div>
       </div>

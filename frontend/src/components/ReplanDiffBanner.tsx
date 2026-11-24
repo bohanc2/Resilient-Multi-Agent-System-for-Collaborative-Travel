@@ -20,11 +20,11 @@ export default function ReplanDiffBanner({ diff, onDismiss }: ReplanDiffBannerPr
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-semibold">
               <AlertTriangle className="w-3.5 h-3.5" />
-              14:00 突發氣候應變成功
+              14:00 Weather Contingency Resolved
             </span>
             <span className="flex items-center gap-1 text-xs text-emerald-400 font-medium">
               <ShieldCheck className="w-3.5 h-3.5" />
-              18:30 晚餐鎖定 100% 保留
+              18:30 Dinner Anchor 100% Preserved
             </span>
           </div>
           <p className="text-sm font-medium text-slate-200">
@@ -54,7 +54,7 @@ export default function ReplanDiffBanner({ diff, onDismiss }: ReplanDiffBannerPr
 
           <div className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>{diff.unaffected_count} 個時段原封不動</span>
+            <span>{diff.unaffected_count} Blocks Retained</span>
           </div>
         </div>
 
@@ -62,7 +62,7 @@ export default function ReplanDiffBanner({ diff, onDismiss }: ReplanDiffBannerPr
         <button
           onClick={onDismiss}
           className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors shrink-0"
-          title="關閉提示"
+          title="Dismiss Alert"
         >
           <X className="w-4 h-4" />
         </button>

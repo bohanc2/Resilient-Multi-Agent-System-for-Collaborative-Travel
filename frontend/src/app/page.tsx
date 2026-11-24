@@ -17,7 +17,7 @@ const InteractiveMap = dynamic(() => import("../components/InteractiveMap"), {
   loading: () => (
     <div className="w-full h-[520px] rounded-2xl glass-panel border border-white/10 flex flex-col items-center justify-center text-slate-400 gap-2">
       <div className="w-8 h-8 rounded-full border-2 border-sky-400 border-t-transparent animate-spin" />
-      <span className="text-xs">載入互動地圖與座標系統中...</span>
+      <span className="text-xs">Loading interactive map and coordinate system...</span>
     </div>
   ),
 });
@@ -121,7 +121,7 @@ export default function Home() {
     setCurrentEvent({
       event: "start",
       node: "orchestrator",
-      message: "連線後端多代理人系統，建立 SSE 串流規劃頻道...",
+      message: "Connecting to multi-agent backend, establishing SSE streaming channel...",
     });
 
     try {
@@ -190,7 +190,7 @@ export default function Home() {
       setCurrentEvent({
         event: "finished",
         node: "orchestrator",
-        message: "行程生成完畢，確定性檢查通過。",
+        message: "Itinerary generation complete. Deterministic validation passed.",
         plan: mockPlan,
       });
     } finally {

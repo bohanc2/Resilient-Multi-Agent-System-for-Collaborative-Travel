@@ -13,7 +13,7 @@ export const TAIPEI_VENUES: Record<string, VenueInfo> = {
     open: "00:00",
     close: "23:59",
     min_minutes: 0,
-    description: "旅程起訖點：位於西門町中心的舒適旅店。"
+    description: "Trip basecamp: cozy hotel located in central Ximending."
   },
   din_tai_fung_101: {
     id: "din_tai_fung_101",
@@ -27,7 +27,7 @@ export const TAIPEI_VENUES: Record<string, VenueInfo> = {
     open: "11:00",
     close: "21:30",
     min_minutes: 60,
-    description: "台北 101 旗艦店小籠包晚餐，米其林推薦經典美食。"
+    description: "Flagship Michelin-recommended dumpling restaurant inside Taipei 101 Mall."
   },
   taipei101_observatory: {
     id: "taipei101_observatory",
@@ -41,7 +41,7 @@ export const TAIPEI_VENUES: Record<string, VenueInfo> = {
     open: "10:00",
     close: "22:00",
     min_minutes: 60,
-    description: "89 樓室內觀景台，俯瞰台北盆地璀璨天際線。"
+    description: "Indoor observation deck on the 89th floor with panoramic city views."
   },
   elephant_mountain: {
     id: "elephant_mountain",
@@ -55,7 +55,7 @@ export const TAIPEI_VENUES: Record<string, VenueInfo> = {
     open: "05:00",
     close: "22:00",
     min_minutes: 90,
-    description: "象山巨石步道，眺望台北 101 最壯麗的制高點。"
+    description: "Iconic stair trail offering premier viewpoints of Taipei 101 skyline."
   },
   yangmingshan: {
     id: "yangmingshan",
@@ -69,7 +69,7 @@ export const TAIPEI_VENUES: Record<string, VenueInfo> = {
     open: "06:00",
     close: "18:00",
     min_minutes: 180,
-    description: "陽明山七星山主東峰步道，大屯火山群地質景觀。"
+    description: "Volcanic peak trail with mountain vents in Yangmingshan National Park."
   },
   fine_arts_museum: {
     id: "fine_arts_museum",
@@ -83,7 +83,7 @@ export const TAIPEI_VENUES: Record<string, VenueInfo> = {
     open: "09:30",
     close: "17:30",
     min_minutes: 90,
-    description: "北美館：台灣首座現代美術館，當代前衛策展。"
+    description: "Modern and contemporary art museum featuring international exhibits."
   },
   moca_taipei: {
     id: "moca_taipei",
@@ -97,7 +97,7 @@ export const TAIPEI_VENUES: Record<string, VenueInfo> = {
     open: "10:00",
     close: "18:00",
     min_minutes: 60,
-    description: "台北當代藝術館：紅磚歷史古蹟結合前衛新媒體藝術展覽。"
+    description: "Historic red-brick building hosting experimental contemporary art."
   },
   national_palace_museum: {
     id: "national_palace_museum",
@@ -111,7 +111,7 @@ export const TAIPEI_VENUES: Record<string, VenueInfo> = {
     open: "09:00",
     close: "17:00",
     min_minutes: 120,
-    description: "國立故宮博物院：世界級中華歷史藝術瑰寶典藏。"
+    description: "World-renowned repository of imperial Chinese history and ancient artworks."
   },
   huashan_park: {
     id: "huashan_park",
@@ -125,7 +125,7 @@ export const TAIPEI_VENUES: Record<string, VenueInfo> = {
     open: "10:00",
     close: "20:00",
     min_minutes: 60,
-    description: "華山 1914 文創園區：舊酒廠改造的室內展覽空間與特色選品店。"
+    description: "Converted historic winery hosting indoor creative exhibitions and design pop-ups."
   },
   songshan_park: {
     id: "songshan_park",
@@ -139,7 +139,7 @@ export const TAIPEI_VENUES: Record<string, VenueInfo> = {
     open: "09:00",
     close: "18:00",
     min_minutes: 60,
-    description: "松山文創園區：松菸菸廠古蹟再造之設計與當代展演工坊。"
+    description: "Former tobacco factory revitalized as a cultural and design laboratory."
   },
   eslite_xinyi: {
     id: "eslite_xinyi",
@@ -153,7 +153,7 @@ export const TAIPEI_VENUES: Record<string, VenueInfo> = {
     open: "11:00",
     close: "22:00",
     min_minutes: 45,
-    description: "誠品信義生活館：多樓層書籍展館、黑膠音樂與文創設計空間。"
+    description: "Multi-level flagship bookstore, vinyl record lounge, and lifestyle boutique."
   },
   cafe_simple_kaffa: {
     id: "cafe_simple_kaffa",
@@ -167,7 +167,7 @@ export const TAIPEI_VENUES: Record<string, VenueInfo> = {
     open: "10:00",
     close: "18:00",
     min_minutes: 45,
-    description: "興波咖啡旗艦店：WBC 世界冠軍手沖精品咖啡。"
+    description: "World Barista Championship winner specialty pour-over coffee house."
   },
   cafe_fujin: {
     id: "cafe_fujin",
@@ -181,7 +181,7 @@ export const TAIPEI_VENUES: Record<string, VenueInfo> = {
     open: "10:00",
     close: "19:00",
     min_minutes: 60,
-    description: "富錦樹咖啡：民生社區綠意街景與慢活手作甜點。"
+    description: "Chic tree-lined neighborhood cafe serving artisan roasts and pastries."
   },
   longshan_temple: {
     id: "longshan_temple",
@@ -195,7 +195,7 @@ export const TAIPEI_VENUES: Record<string, VenueInfo> = {
     open: "06:00",
     close: "22:00",
     min_minutes: 45,
-    description: "艋舺龍山寺：兩百多年歷史之國家二級古蹟古寺。"
+    description: "Historic folk temple courtyard with over 280 years of cultural heritage."
   }
 };
 
@@ -230,8 +230,8 @@ export function getGroupColor(members: string[]): {
   const set = new Set(members);
   if (set.has("Alice") || set.has("Bob")) {
     return {
-      badge: "登山健行組",
-      name: "登山組",
+      badge: "Hiking Track",
+      name: "Hiking",
       bg: "bg-emerald-950/20",
       border: "border-emerald-500/40",
       text: "text-emerald-400",
@@ -240,8 +240,8 @@ export function getGroupColor(members: string[]): {
   }
   if (set.has("Carol") || set.has("Dave")) {
     return {
-      badge: "藝文探索組",
-      name: "藝文組",
+      badge: "Art & Design Track",
+      name: "Art",
       bg: "bg-indigo-950/20",
       border: "border-indigo-500/40",
       text: "text-indigo-400",
@@ -250,8 +250,8 @@ export function getGroupColor(members: string[]): {
   }
   if (set.has("Eve") || set.has("Frank")) {
     return {
-      badge: "咖啡文青組",
-      name: "咖啡組",
+      badge: "Cafe & Culture Track",
+      name: "Cafe",
       bg: "bg-amber-950/20",
       border: "border-amber-500/40",
       text: "text-amber-400",
@@ -259,8 +259,8 @@ export function getGroupColor(members: string[]): {
     };
   }
   return {
-    badge: "全員合流",
-    name: "全員",
+    badge: "All Travelers",
+    name: "All",
     bg: "bg-amber-500/10",
     border: "border-amber-400/50",
     text: "text-amber-300",

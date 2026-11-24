@@ -26,9 +26,9 @@ export default function SwimlaneTimeline({
     return (
       <div className="glass-panel rounded-2xl p-12 text-center text-slate-400 border border-white/5">
         <Sparkles className="w-10 h-10 text-sky-400 mx-auto mb-3 animate-pulse" />
-        <h3 className="text-base font-semibold text-slate-200">行程等待生成</h3>
+        <h3 className="text-base font-semibold text-slate-200">Awaiting Itinerary Generation</h3>
         <p className="text-sm text-slate-400 mt-1 max-w-md mx-auto">
-          點擊上方「載入台北 6 人協作展示劇本」或「自訂多人偏好」，多代理人工作流將即時為不同喜好分流行程。
+          Click &quot;Load Taipei 6-Pax Demo&quot; or &quot;Multiplayer Intake&quot; above to launch real-time multi-agent collaborative scheduling.
         </p>
       </div>
     );
@@ -68,11 +68,11 @@ export default function SwimlaneTimeline({
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-sky-400" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-              6 位同遊成員體力與預算監控（Traveler Limit & Budget Tracker）
+              6-Traveler Limit & Budget Tracker
             </h3>
           </div>
           <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-            全員 100% 合規
+            100% Compliant
           </span>
         </div>
 
@@ -109,7 +109,7 @@ export default function SwimlaneTimeline({
                 </div>
                 <div className="flex items-center gap-1 text-[10px] text-slate-400 pt-0.5">
                   <Footprints className="w-3 h-3 text-slate-500" />
-                  <span>步行上限: Lv.{t.max_walk}</span>
+                  <span>Walk Limit: Lv.{t.max_walk}</span>
                 </div>
               </div>
             );
@@ -128,11 +128,11 @@ export default function SwimlaneTimeline({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-mono font-bold text-sky-400">09:00</span>
-                <span className="text-sm font-semibold text-white">西門町飯店出發（Hotel Start）</span>
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">全員會合</span>
+                <span className="text-sm font-semibold text-white">Hotel Departure (Ximending)</span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">All Travelers</span>
               </div>
               <p className="text-xs text-slate-400">
-                出發開始今日行程，各組依喜好展開分流並行活動。
+                Departure from hotel basecamp; groups split into parallel tracks tailored to personal interests.
               </p>
             </div>
           </div>
@@ -147,10 +147,10 @@ export default function SwimlaneTimeline({
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 glow-emerald" />
                 <h4 className="text-xs font-bold text-emerald-300 uppercase tracking-wide">
-                  登山健行組（Alice, Bob）
+                  Hiking Track (Alice, Bob)
                 </h4>
               </div>
-              <span className="text-[11px] text-emerald-400/80">熱愛戶外 / 景觀</span>
+              <span className="text-[11px] text-emerald-400/80">Scenic / Peaks</span>
             </div>
 
             <div className="space-y-3">
@@ -173,10 +173,10 @@ export default function SwimlaneTimeline({
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-indigo-400" />
                 <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-wide">
-                  藝文探索組（Carol, Dave）
+                  Art & Design Track (Carol, Dave)
                 </h4>
               </div>
-              <span className="text-[11px] text-indigo-400/80">現代藝術 / 輕步</span>
+              <span className="text-[11px] text-indigo-400/80">Museums / Light Walk</span>
             </div>
 
             <div className="space-y-3">
@@ -199,10 +199,10 @@ export default function SwimlaneTimeline({
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-400 glow-amber" />
                 <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wide">
-                  咖啡文青組（Eve, Frank）
+                  Cafe & Culture Track (Eve, Frank)
                 </h4>
               </div>
-              <span className="text-[11px] text-amber-400/80">精品手沖 / 書店</span>
+              <span className="text-[11px] text-amber-400/80">Artisan Coffee / Books</span>
             </div>
 
             <div className="space-y-3">
@@ -228,18 +228,18 @@ export default function SwimlaneTimeline({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-bold text-emerald-300">18:15 會合檢核</span>
+                <span className="text-xs font-mono font-bold text-emerald-300">18:15 Convergence Audit</span>
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
-                  時差 ≤ 15 分鐘通過
+                  Arrival Gap ≤ 15 min PASS
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-0.5">
-                全員預計 18:10～18:17 陸續抵達台北 101，抵達時間差僅 7 分鐘（嚴格低於 15 分鐘極限），無延遲等待。
+                All groups arrive between 18:10 and 18:17 at Taipei 101. Total arrival window is just 7 minutes (strictly below the 15-minute limit) with zero wait penalty.
               </p>
             </div>
           </div>
           <span className="text-xs font-semibold text-emerald-400 shrink-0">
-            ✓ 確定性檢查器通過
+            ✓ Deterministic Solver Verified
           </span>
         </div>
 
@@ -269,7 +269,7 @@ export default function SwimlaneTimeline({
                   {isAnchor && (
                     <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40 text-xs font-bold">
                       <Lock className="w-3.5 h-3.5" />
-                      Hard Anchor 不可變動
+                      Hard Anchor (Immutable)
                     </span>
                   )}
                 </div>
@@ -277,11 +277,11 @@ export default function SwimlaneTimeline({
                 <div className="flex items-center gap-3 text-xs text-slate-300">
                   <span className="flex items-center gap-1">
                     <DollarSign className="w-3.5 h-3.5 text-amber-400" />
-                    NT${v.cost} / 人
+                    NT${v.cost} / person
                   </span>
                   <span className="flex items-center gap-1">
                     <Users className="w-3.5 h-3.5 text-sky-400" />
-                    全員 6 位
+                    All 6 Members
                   </span>
                 </div>
               </div>
@@ -292,10 +292,10 @@ export default function SwimlaneTimeline({
 
               <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5 text-[11px] text-slate-400">
                 <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                  全員同席共餐
+                  Shared Group Dinner
                 </span>
                 <span>•</span>
-                <span>鎖定時段，任何突發天氣或分流變更均嚴禁更動此預約</span>
+                <span>Locked booking block; emergency weather contingencies are strictly forbidden from modifying this reservation</span>
               </div>
             </div>
           );
@@ -342,7 +342,7 @@ function ItineraryCard({
         <div className="flex items-center gap-1.5">
           {isModified && (
             <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-400 text-slate-950 animate-bounce">
-              NEW 備案
+              CONTINGENCY
             </span>
           )}
           <span
@@ -353,7 +353,7 @@ function ItineraryCard({
             }`}
           >
             {v.indoor ? <Sun className="w-3 h-3 text-sky-400" /> : <CloudRain className="w-3 h-3 text-emerald-400" />}
-            {v.indoor ? "室內景點" : "戶外景點"}
+            {v.indoor ? "Indoor" : "Outdoor"}
           </span>
         </div>
       </div>

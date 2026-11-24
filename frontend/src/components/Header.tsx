@@ -79,7 +79,7 @@ export default function Header({
           className="relative group overflow-hidden px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-medium text-xs sm:text-sm shadow-md shadow-sky-500/20 hover:shadow-sky-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
         >
           <Sparkles className="w-4 h-4 text-sky-200" />
-          <span>載入台北 6 人協作展示劇本</span>
+          <span>Load Taipei 6-Pax Demo</span>
         </button>
 
         {/* Multiplayer Intake Button */}
@@ -89,17 +89,17 @@ export default function Header({
           className="px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 text-slate-200 border border-slate-700/80 hover:border-slate-600 text-xs sm:text-sm font-medium transition-all flex items-center gap-2 disabled:opacity-50"
         >
           <SlidersHorizontal className="w-4 h-4 text-slate-400" />
-          <span className="hidden sm:inline">自訂多人偏好</span>
+          <span className="hidden sm:inline">Multiplayer Intake</span>
         </button>
 
         {/* Audit Drawer Toggle */}
         <button
           onClick={onToggleAudit}
           className="px-3.5 py-2 rounded-xl bg-emerald-950/30 hover:bg-emerald-900/40 text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/50 text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5"
-          title="檢視確定性審計報告"
+          title="View Deterministic Checker Audit Report"
         >
           <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span className="hidden md:inline">審計驗證</span>
+          <span className="hidden md:inline">Safety Audit</span>
         </button>
       </div>
     </header>

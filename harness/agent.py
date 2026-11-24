@@ -145,8 +145,7 @@ class TravelAgent:
             if remaining <= 2:
                 msgs.append({
                     "role": "system",
-                    "content": f"【CRITICAL WARNING】剩餘 {remaining} 步，必須立刻呼叫 propose_plan 提交目前最佳可行解。"
-                               f"(Remaining {remaining} step(s): you MUST immediately call propose_plan with your complete plan!)"
+                    "content": f"[CRITICAL WARNING] Remaining {remaining} step(s): you MUST immediately call propose_plan with your complete best feasible plan!"
                 })
             if remaining == 1:
                 msgs.append({"role": "user", "content": "FINAL STEP: Call propose_plan right now with your complete plan JSON."})

@@ -27,24 +27,24 @@ export default function DisruptionSimulator({
             <Zap className="w-4 h-4 text-amber-400" />
           </div>
           <h4 className="text-xs font-bold uppercase tracking-wider text-white">
-            突發事件模擬器（Disruption Injector）
+            Disruption Simulator (Event Injector)
           </h4>
         </div>
 
         {isReplanActive ? (
           <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium">
             <CheckCircle2 className="w-3 h-3" />
-            局部修復生效中
+            Active Contingency
           </span>
         ) : (
           <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
-            即時待命中
+            Standby Ready
           </span>
         )}
       </div>
 
       <p className="text-xs text-slate-300 leading-relaxed">
-        模擬 14:00 天氣突發劇變（豪雨機率 85%），測試 Multi-Agent 如何在<strong>不影響其餘組別與 18:30 晚餐會合</strong>的前提下，僅將戶外登山組替換為室內備案。
+        Simulate an abrupt 14:00 weather shock (85% rain spike) to test how Multi-Agent executes localized replanning, replacing only the outdoor hiking track with an indoor alternative <strong>without altering other tracks or the 18:30 dinner anchor</strong>.
       </p>
 
       {/* Trigger Buttons */}
@@ -59,16 +59,16 @@ export default function DisruptionSimulator({
           ) : (
             <CloudLightning className="w-4 h-4 text-slate-950" />
           )}
-          <span>{isLoading ? "Contingency 計算中..." : "模擬 14:00 突發 85% 暴雨"}</span>
+          <span>{isLoading ? "Calculating Contingency..." : "Simulate 14:00 Rain Spike (85%)"}</span>
         </button>
 
         {isReplanActive && (
           <button
             onClick={onResetReplan}
             className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition-all"
-            title="復原為原行程"
+            title="Reset to Original Plan"
           >
-            復原
+            Reset
           </button>
         )}
       </div>

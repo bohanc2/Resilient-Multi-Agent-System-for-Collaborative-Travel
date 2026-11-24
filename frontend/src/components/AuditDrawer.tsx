@@ -13,45 +13,45 @@ export default function AuditDrawer({ isOpen, onClose }: AuditDrawerProps) {
 
   const AUDIT_RULES = [
     {
-      title: "營業時間與開館日檢核（Opening Hours & Days）",
-      desc: "每個項目之停留時間皆位於景點當日營業區間內，無公休日造訪，且活動長度皆符合景點最短造訪時數要求。",
-      status: "100% 合規",
-      metric: "0 項違規",
+      title: "Opening Hours & Operating Days Verification",
+      desc: "All item dwell times reside strictly within daily operating hours, avoid scheduled closing days, and satisfy minimum stay durations.",
+      status: "100% Compliant",
+      metric: "0 Violations",
       icon: Clock,
     },
     {
-      title: "團體會合時差檢核（Regroup Convergence Window）",
-      desc: "全員於 18:30 抵達台北 101 鼎泰豐晚餐，最先抵達與最後抵達時差僅 7 分鐘，遠優於 15 分鐘容許極限。",
-      status: "時差 7 min ≤ 15 min",
-      metric: "完美合流",
+      title: "Regroup Convergence Window Verification",
+      desc: "All travelers converge for the 18:30 Din Tai Fung dinner at Taipei 101 with an arrival time gap of only 7 minutes, well within the 15-minute tolerance limit.",
+      status: "7 min gap ≤ 15 min",
+      metric: "Perfect Convergence",
       icon: Users,
     },
     {
-      title: "氣象降雨戶外安全檢核（Precipitation Threshold Safety）",
-      desc: "在 14:00～18:00 突發降雨機率 85% 之時段，系統強制全面清空室外行程，戶外雨中暴露值為 0。",
-      status: "0 戶外衝突",
-      metric: "100% 安全",
+      title: "Precipitation Threshold & Weather Safety",
+      desc: "During the 14:00-18:00 window when rain probability reached 85%, all outdoor activities were proactively converted to indoor alternatives with zero outdoor rain exposure.",
+      status: "0 Outdoor Conflicts",
+      metric: "100% Weather Safe",
       icon: CheckCheck,
     },
     {
-      title: "Hard Anchor 固定預約完整性（Anchor Immutability）",
-      desc: "18:30～19:30 台北 101 鼎泰豐全員 6 人固定預約，無論在日常規劃或突發暴雨重規劃中均 100% 嚴格保留。",
-      status: "100% 保留",
-      metric: "不可變動",
+      title: "Hard Anchor & Locked Booking Immutability",
+      desc: "The 18:30-19:30 Din Tai Fung dinner reservation for all 6 travelers was 100% preserved through both initial planning and emergency localized replanning.",
+      status: "100% Preserved",
+      metric: "Immutable",
       icon: ShieldCheck,
     },
     {
-      title: "個人花費與步行限制檢核（Budget & Walk Limits）",
-      desc: "所有 6 位成員總累計支出均在各自設定之預算上限內；所有景點步行等級均低於個人最高上限（Lv.0～Lv.3）。",
-      status: "6 / 6 全員合規",
-      metric: "預算平衡",
+      title: "Individual Budget & Walking Limits Enforcement",
+      desc: "Total cumulative spending for every member remains strictly within allocated budgets, and physical excursion walk levels do not exceed individual caps (Lv.0-3).",
+      status: "6 / 6 Compliant",
+      metric: "Budget Balanced",
       icon: DollarSign,
     },
     {
-      title: "Prompt Injection 攻擊隔離（Untrusted Text Sandbox）",
-      desc: "所有景點說明與外部資料均被封裝為不可信文本，景點評論中植入之假取消訊息 0/5 越權成功。",
-      status: "0 / 5 成功攻擊",
-      metric: "抗脆弱隔離",
+      title: "Prompt Injection & Untrusted Content Isolation",
+      desc: "All external venue descriptions and review texts are treated as untrusted data; embedded injection payloads achieved 0/5 unauthorized overrides.",
+      status: "0 / 5 Breaches",
+      metric: "Resilient Sandbox",
       icon: ShieldAlert,
     },
   ];
@@ -67,10 +67,10 @@ export default function AuditDrawer({ isOpen, onClose }: AuditDrawerProps) {
             </div>
             <div>
               <h3 className="text-base font-bold text-white flex items-center gap-2">
-                確定性檢查器（Deterministic Checker）審計報告
+                Deterministic Checker Audit Report
               </h3>
               <p className="text-xs text-slate-400">
-                驗證行程是否 100% 符合數學與實體世界硬性約束（State Check, 零幻覺判定）
+                Verifying full compliance with mathematical and physical hard constraints (Zero Hallucination Proof)
               </p>
             </div>
           </div>
@@ -92,12 +92,12 @@ export default function AuditDrawer({ isOpen, onClose }: AuditDrawerProps) {
               STATUS: PASSED (0 Hard Violations)
             </span>
             <p className="text-xs text-slate-300 mt-1">
-              由 Python 確定性引擎驗證，杜絕 LLM 自由發揮導致之幻覺與常識錯誤。
+              Verified by deterministic constraint engines, eliminating LLM hallucinations and scheduling fallacies.
             </p>
           </div>
           <div className="text-right shrink-0">
             <span className="text-2xl font-black text-emerald-400">100%</span>
-            <span className="text-xs text-slate-400 block">合規率</span>
+            <span className="text-xs text-slate-400 block">Compliance</span>
           </div>
         </div>
 
@@ -135,7 +135,7 @@ export default function AuditDrawer({ isOpen, onClose }: AuditDrawerProps) {
             onClick={onClose}
             className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs sm:text-sm font-semibold transition-all border border-slate-700"
           >
-            關閉審計報告
+            Close Audit Report
           </button>
         </div>
       </div>

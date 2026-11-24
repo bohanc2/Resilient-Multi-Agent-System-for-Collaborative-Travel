@@ -115,8 +115,8 @@ class ReplanRequest(BaseModel):
 # --- Helper: Built-in Taipei 6-person preset ---
 
 TAIPEI_6P_PRESET = {
-    "title": "台北 6 位朋友同遊（18:30 台北 101 晚餐鎖定，下午分登山/美術館/咖啡三組）",
-    "description": "6 位喜好各異的朋友同遊台北：\n- 登山組（Alice, Bob）：熱愛戶外健行，預算 2000 TWD，挑戰象山步道。\n- 藝文組（Carol, Dave）：偏好美術館與現代設計，預算 2500 TWD，參觀北美館/當代藝術館。\n- 咖啡文青組（Eve, Frank）：喜好特色咖啡與書店，預算 2200 TWD，造訪華山與 Simple Kaffa。\n晚間 18:30 於台北 101 鼎泰豐全員會合，抵達時間差嚴格控制在 15 分鐘以內。",
+    "title": "Taipei 6-Pax Collaborative Tour (18:30 Taipei 101 Dinner Anchor, Afternoon Split: Hiking/Art/Cafe)",
+    "description": "6 friends with diverse interests exploring Taipei:\n- Hiking Track (Alice, Bob): Outdoor & scenic enthusiasts, budget 2000 TWD, Elephant Mountain Trail.\n- Art Track (Carol, Dave): Modern art & design enthusiasts, budget 2500 TWD, TFAM & MoCA.\n- Cafe & Culture Track (Eve, Frank): Specialty coffee & bookstores, budget 2200 TWD, Huashan & Simple Kaffa.\nRegroup at 18:30 at Din Tai Fung (Taipei 101) with convergence gap strictly within 15 minutes.",
     "setup": {
         "city": "taipei",
         "weekday": "Sat",
@@ -357,7 +357,7 @@ def plan_replan(req: ReplanRequest):
             modified_groups.append({
                 "members": it["members"],
                 "status": "REPLACED",
-                "reason": f"{event.time} 突發暴雨 ({int(rain_val * 100)}%)，室外景點 [{v.get('name', vid)}] 下午時段緊急替換為室內景點 [{cand_v.get('name', cand_vid)}]",
+                "reason": f"Sudden rain spike at {event.time} ({int(rain_val * 100)}%), outdoor venue [{v.get('name', vid)}] localized replacement with indoor alternative [{cand_v.get('name', cand_vid)}]",
                 "original_item": {
                     "venue_id": vid,
                     "name": v.get("name", vid),
@@ -381,7 +381,7 @@ def plan_replan(req: ReplanRequest):
     }
 
     diff_summary = {
-        "event_summary": f"突發氣候事件：{event.time} 降雨機率飆升至 {int(rain_val * 100)}%。Contingency 模組已精準完成局部換點，其餘組別與晚餐鎖定預約完全不受影響。",
+        "event_summary": f"Disruption Detected: Precipitation probability spiked to {int(rain_val * 100)}% at {event.time}. Contingency module executed localized precision replanning; all other tracks and the 18:30 dinner anchor remain 100% intact.",
         "modified_count": len(modified_groups),
         "unaffected_count": len(unaffected_groups),
         "modified_groups": modified_groups,

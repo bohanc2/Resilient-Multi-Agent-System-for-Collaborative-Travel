@@ -123,7 +123,34 @@ def test_hybrid_fallback():
     print(f"✓ Hybrid data layer verified: travel_minutes={mins}, rain_by_hour={len(rain)} hours, fallback operational")
 
 
+def test_health_and_venues_endpoints():
+    client = TestClient(app)
+    # 1. Test health check
+    res = client.get("/api/health")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "healthy"
+    assert "data_mode" in data
+    assert "providers" in data
+    print(f"✓ GET /api/health verified: mode={data['data_mode']}, providers={data['providers']}")
+
+    # 2. Test venues for default city (taipei)
+    res_venues = client.get("/api/venues?city=taipei")
+    assert res_venues.status_code == 200
+    venues = res_venues.json()
+    assert len(venues) >= 20
+    assert "din_tai_fung_101" in venues
+
+    # 3. Test venues for another city (kyoto) - live OSM fallback
+    res_kyoto = client.get("/api/venues?city=kyoto")
+    assert res_kyoto.status_code == 200
+    kyoto_venues = res_kyoto.json()
+    assert len(kyoto_venues) > 0
+    print(f"✓ GET /api/venues verified: taipei={len(venues)} venues, kyoto={len(kyoto_venues)} venues")
+
+
 if __name__ == "__main__":
+    test_health_and_venues_endpoints()
     test_taipei_preset_endpoint()
     test_plan_stream_endpoint()
     test_plan_replan_endpoint()

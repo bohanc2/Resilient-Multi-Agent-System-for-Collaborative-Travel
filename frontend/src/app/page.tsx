@@ -56,7 +56,7 @@ const DEFAULT_SETUP: Setup = {
   },
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function Home() {
   const [setup, setSetup] = useState<Setup>(DEFAULT_SETUP);
@@ -65,6 +65,8 @@ export default function Home() {
   const [currentEvent, setCurrentEvent] = useState<AgentStepEvent | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [backendHealthy, setBackendHealthy] = useState(true);
+  const [dataMode, setDataMode] = useState<string>("Live API Connected");
+  const [venuesMap, setVenuesMap] = useState<Record<string, any>>({});
 
   // Replan states
   const [isReplanning, setIsReplanning] = useState(false);
@@ -80,13 +82,36 @@ export default function Home() {
   useEffect(() => {
     fetch(`${API_BASE}/api/health`)
       .then((res) => {
-        if (res.ok) setBackendHealthy(true);
+        if (!res.ok) throw new Error("Health check failed");
+        return res.json();
+      })
+      .then((data) => {
+        setBackendHealthy(true);
+        if (data.data_mode) {
+          setDataMode(data.data_mode);
+        }
       })
       .catch(() => {
         // Fallback gracefully for local dev
         setBackendHealthy(false);
       });
   }, []);
+
+  // Fetch venue metadata whenever city changes
+  useEffect(() => {
+    const city = setup.city || "taipei";
+    fetch(`${API_BASE}/api/venues?city=${city}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Venues fetch failed");
+        return res.json();
+      })
+      .then((data) => {
+        setVenuesMap(data);
+      })
+      .catch((err) => {
+        console.warn("Could not fetch live venues:", err);
+      });
+  }, [setup.city]);
 
   // Run Plan Stream using SSE
   const runPlanStream = async (targetSetup: Setup) => {
@@ -254,6 +279,7 @@ export default function Home() {
         onOpenIntake={() => setIsIntakeOpen(true)}
         onToggleAudit={() => setIsAuditOpen(true)}
         backendHealthy={backendHealthy}
+        dataMode={dataMode}
         isStreaming={isStreaming}
         replanActive={Boolean(replanDiff)}
       />
@@ -274,6 +300,7 @@ export default function Home() {
             selectedVenueId={selectedVenueId}
             onSelectVenue={(vid) => setSelectedVenueId(vid)}
             replanModifiedVenueIds={replanModifiedVenueIds}
+            venuesMap={venuesMap}
           />
         </section>
 
@@ -294,6 +321,7 @@ export default function Home() {
               plan={plan}
               selectedVenueId={selectedVenueId}
               onSelectVenue={(vid) => setSelectedVenueId(vid)}
+              venuesMap={venuesMap}
             />
           </div>
         </section>

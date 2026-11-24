@@ -11,6 +11,7 @@ interface SwimlaneTimelineProps {
   selectedVenueId: string | null;
   onSelectVenue: (venueId: string) => void;
   replanModifiedVenueIds: string[];
+  venuesMap?: Record<string, any>;
 }
 
 export default function SwimlaneTimeline({
@@ -19,6 +20,7 @@ export default function SwimlaneTimeline({
   selectedVenueId,
   onSelectVenue,
   replanModifiedVenueIds,
+  venuesMap,
 }: SwimlaneTimelineProps) {
   if (!plan || !plan.itinerary || plan.itinerary.length === 0) {
     return (
@@ -51,7 +53,7 @@ export default function SwimlaneTimeline({
     let spent = 0;
     items.forEach((it) => {
       if (it.members.includes(name)) {
-        const v = getVenue(it.venue_id);
+        const v = getVenue(it.venue_id, venuesMap);
         spent += v.cost;
       }
     });
@@ -159,6 +161,7 @@ export default function SwimlaneTimeline({
                   isSelected={selectedVenueId === item.venue_id}
                   onSelect={() => onSelectVenue(item.venue_id)}
                   isModified={replanModifiedVenueIds.includes(item.venue_id)}
+                  venuesMap={venuesMap}
                 />
               ))}
             </div>
@@ -184,6 +187,7 @@ export default function SwimlaneTimeline({
                   isSelected={selectedVenueId === item.venue_id}
                   onSelect={() => onSelectVenue(item.venue_id)}
                   isModified={replanModifiedVenueIds.includes(item.venue_id)}
+                  venuesMap={venuesMap}
                 />
               ))}
             </div>
@@ -209,6 +213,7 @@ export default function SwimlaneTimeline({
                   isSelected={selectedVenueId === item.venue_id}
                   onSelect={() => onSelectVenue(item.venue_id)}
                   isModified={replanModifiedVenueIds.includes(item.venue_id)}
+                  venuesMap={venuesMap}
                 />
               ))}
             </div>
@@ -240,7 +245,7 @@ export default function SwimlaneTimeline({
 
         {/* Hard Anchor Shared Block: 18:30 Din Tai Fung 101 */}
         {sharedItems.map((item, idx) => {
-          const v = getVenue(item.venue_id);
+          const v = getVenue(item.venue_id, venuesMap);
           const isAnchor = item.venue_id === "din_tai_fung_101";
 
           return (
@@ -306,13 +311,15 @@ function ItineraryCard({
   isSelected,
   onSelect,
   isModified,
+  venuesMap,
 }: {
   item: ItineraryItem;
   isSelected: boolean;
   onSelect: () => void;
   isModified?: boolean;
+  venuesMap?: Record<string, any>;
 }) {
-  const v = getVenue(item.venue_id);
+  const v = getVenue(item.venue_id, venuesMap);
   const groupMeta = getGroupColor(item.members);
 
   return (

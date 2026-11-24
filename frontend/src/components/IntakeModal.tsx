@@ -58,6 +58,43 @@ export default function IntakeModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Destination City Section */}
+          <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                目的地城市（支援全球真實景點查詢 / OpenStreetMap / Google Places）
+              </label>
+              <span className="text-[11px] text-sky-400 font-mono">
+                {currentSetup.city.toUpperCase()}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={currentSetup.city}
+                onChange={(e) => setCurrentSetup({ ...currentSetup, city: e.target.value.toLowerCase() })}
+                placeholder="輸入城市名稱 (例如: taipei, tokyo, kyoto, paris, seattle, new york...)"
+                className="flex-1 px-3 py-1.5 rounded-lg bg-slate-800 text-white border border-slate-700 text-xs focus:outline-none focus:border-sky-500"
+              />
+              <div className="flex items-center gap-1">
+                {["taipei", "kyoto", "tokyo", "paris"].map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setCurrentSetup({ ...currentSetup, city: c })}
+                    className={`px-2 py-1 rounded text-[11px] font-medium transition-all ${
+                      currentSetup.city.toLowerCase() === c
+                        ? "bg-sky-500/30 text-sky-300 border border-sky-500/50"
+                        : "bg-slate-800 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {c.charAt(0).toUpperCase() + c.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* Travelers Grid */}
           <div className="space-y-3">
             <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">

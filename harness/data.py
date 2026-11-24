@@ -110,8 +110,23 @@ def to_hhmm(minutes: int) -> str:
 
 def venues_for(setup: dict) -> dict[str, dict]:
     """Venue table for a task, with per-task overrides (e.g. an injected description)."""
-    city = setup.get("city", "taipei")
-    vs = {k: copy.deepcopy(v) for k, v in VENUES.items() if v["city"] == city}
+    city = setup.get("city", "taipei").lower()
+    vs = {k: copy.deepcopy(v) for k, v in VENUES.items() if v.get("city") == city}
+    
+    # If city is not in snapshot or empty, dynamically fetch real venues from live providers
+    if not vs:
+        try:
+            from .venues_live import fetch_live_venues
+            live_vs = fetch_live_venues(city)
+            if live_vs:
+                vs = copy.deepcopy(live_vs)
+        except Exception:
+            pass
+            
+    # Final fallback if still empty: fallback to taipei so engine never crashes
+    if not vs:
+        vs = {k: copy.deepcopy(v) for k, v in VENUES.items() if v.get("city") == "taipei"}
+
     for vid, patch in (setup.get("venue_overrides") or {}).items():
         vs.setdefault(vid, {}).update(patch)
     return vs
@@ -152,13 +167,14 @@ def travel_minutes(a: str, b: str, venues: dict | None = None) -> int:
 def rain_by_hour(setup: dict) -> dict[int, float]:
     if USE_LIVE_APIS:
         try:
+            import datetime
             from .cities import CITY_INFO
             from .live import rain_by_hour as live_rain
-            city = setup.get("city", "taipei")
+            city = setup.get("city", "taipei").lower()
             if city in CITY_INFO:
                 lat = CITY_INFO[city]["lat"]
                 lon = CITY_INFO[city]["lon"]
-                date = setup.get("date", "2026-11-24")
+                date = setup.get("date", datetime.date.today().isoformat())
                 return live_rain(lat, lon, date)
         except Exception:
             # Fallback to setup weather

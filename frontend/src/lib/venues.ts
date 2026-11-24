@@ -199,10 +199,13 @@ export const TAIPEI_VENUES: Record<string, VenueInfo> = {
   }
 };
 
-export function getVenue(id: string): VenueInfo {
+export function getVenue(id: string, venuesMap?: Record<string, VenueInfo>): VenueInfo {
+  if (venuesMap && venuesMap[id]) {
+    return venuesMap[id];
+  }
   return TAIPEI_VENUES[id] || {
     id,
-    name: id,
+    name: id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
     lat: 25.033,
     lon: 121.564,
     indoor: true,

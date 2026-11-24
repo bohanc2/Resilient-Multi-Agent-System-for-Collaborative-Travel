@@ -8,6 +8,7 @@ interface HeaderProps {
   onOpenIntake: () => void;
   onToggleAudit: () => void;
   backendHealthy: boolean;
+  dataMode?: string;
   isStreaming: boolean;
   replanActive: boolean;
 }
@@ -17,9 +18,11 @@ export default function Header({
   onOpenIntake,
   onToggleAudit,
   backendHealthy,
+  dataMode = "Live API Connected",
   isStreaming,
   replanActive,
 }: HeaderProps) {
+  const isLive = dataMode === "Live API Connected";
   return (
     <header className="sticky top-0 z-40 w-full glass-panel border-b border-white/10 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
       {/* Brand & Badge */}
@@ -45,8 +48,18 @@ export default function Header({
       {/* Center Status Indicators */}
       <div className="hidden lg:flex items-center gap-3">
         <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-700/60 text-xs text-slate-300">
-          <span className={`w-2 h-2 rounded-full ${backendHealthy ? "bg-emerald-400 animate-pulse" : "bg-rose-500"}`} />
-          <span>{backendHealthy ? "Live / Snapshot Hybrid Ready" : "Backend Offline"}</span>
+          <span
+            className={`w-2 h-2 rounded-full ${
+              !backendHealthy
+                ? "bg-rose-500"
+                : isLive
+                ? "bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400"
+                : "bg-amber-400"
+            }`}
+          />
+          <span className="font-medium">
+            {!backendHealthy ? "Backend Offline" : dataMode}
+          </span>
         </div>
 
         {replanActive && (

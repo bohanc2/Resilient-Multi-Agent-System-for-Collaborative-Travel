@@ -11,22 +11,29 @@ interface InteractiveMapProps {
   plan: PlanOutput | null;
   selectedVenueId: string | null;
   onSelectVenue: (venueId: string) => void;
+  venuesMap?: Record<string, any>;
 }
 
 // Map Controller for smooth flyTo
-function MapFlyTo({ selectedVenueId }: { selectedVenueId: string | null }) {
+function MapFlyTo({
+  selectedVenueId,
+  venuesMap,
+}: {
+  selectedVenueId: string | null;
+  venuesMap?: Record<string, any>;
+}) {
   const map = useMap();
 
   useEffect(() => {
     if (!selectedVenueId) return;
-    const v = getVenue(selectedVenueId);
+    const v = getVenue(selectedVenueId, venuesMap);
     if (v.lat && v.lon) {
       map.flyTo([v.lat, v.lon], 14, {
         duration: 1.2,
         easeLinearity: 0.25,
       });
     }
-  }, [selectedVenueId, map]);
+  }, [selectedVenueId, map, venuesMap]);
 
   return null;
 }
@@ -66,14 +73,18 @@ export default function InteractiveMap({
   plan,
   selectedVenueId,
   onSelectVenue,
+  venuesMap,
 }: InteractiveMapProps) {
-  const defaultCenter: [number, number] = [25.042, 121.535]; // Taipei center
-
   const venuesInPlan = (plan?.itinerary || []).map((it) => ({
     item: it,
-    venue: getVenue(it.venue_id),
+    venue: getVenue(it.venue_id, venuesMap),
     colorMeta: getGroupColor(it.members),
   }));
+
+  const defaultCenter: [number, number] =
+    venuesInPlan.length > 0 && venuesInPlan[0].venue.lat
+      ? [venuesInPlan[0].venue.lat, venuesInPlan[0].venue.lon]
+      : [25.042, 121.535]; // Taipei center
 
   // Build route lines for tracks
   const trackCoords: Record<string, [number, number][]> = {
@@ -83,7 +94,7 @@ export default function InteractiveMap({
   };
 
   (plan?.itinerary || []).forEach((it) => {
-    const v = getVenue(it.venue_id);
+    const v = getVenue(it.venue_id, venuesMap);
     if (!v.lat || !v.lon) return;
 
     if (it.members.includes("Alice") || it.members.includes("Bob")) {
@@ -105,7 +116,7 @@ export default function InteractiveMap({
         scrollWheelZoom={true}
         style={{ width: "100%", height: "100%", minHeight: "520px", background: "#0b0f19" }}
       >
-        <MapFlyTo selectedVenueId={selectedVenueId} />
+        <MapFlyTo selectedVenueId={selectedVenueId} venuesMap={venuesMap} />
 
         {/* CartoDB Dark Matter Tiles (Clean, modern dark SaaS aesthetic, no API key needed) */}
         <TileLayer

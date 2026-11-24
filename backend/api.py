@@ -31,14 +31,66 @@ app = FastAPI(
     version="2.0.0",
 )
 
-# Enable CORS for local dev and production frontends
+# CORS Setup supporting dynamic ALLOWED_ORIGINS (e.g. Vercel deployment and local dev)
+allowed_origins_env = os.environ.get("ALLOWED_ORIGINS", "*").strip()
+if allowed_origins_env == "*":
+    allow_origins = ["*"]
+    allow_origin_regex = None
+else:
+    raw_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+    allow_origin_regex = r"^https://.*\.vercel\.app$" if any("*.vercel.app" in o for o in raw_origins) else None
+    allow_origins = [o for o in raw_origins if "*" not in o]
+    if not allow_origins and not allow_origin_regex:
+        allow_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allow_origins,
+    allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def check_live_status() -> dict:
+    """Probe connectivity to live providers (OSRM routing, Open-Meteo weather, Google Places / OSM)."""
+    osrm_live = False
+    open_meteo_live = False
+    google_places_configured = bool(os.environ.get("GOOGLE_PLACES_API_KEY", "").strip())
+
+    if USE_LIVE_APIS:
+        # Fast probe to OSRM
+        try:
+            from harness.live import _get
+            d = _get("https://router.project-osrm.org/route/v1/driving/121.5079,25.0422;121.5648,25.0336?overview=false", timeout=1.5)
+            if d.get("routes"):
+                osrm_live = True
+        except Exception:
+            osrm_live = False
+
+        # Fast probe to Open-Meteo
+        try:
+            from harness.live import _get
+            today = datetime.date.today().isoformat()
+            d = _get(f"https://api.open-meteo.com/v1/forecast?latitude=25.033&longitude=121.565&hourly=precipitation_probability&start_date={today}&end_date={today}&timezone=Asia%2FTaipei", timeout=1.5)
+            if "hourly" in d:
+                open_meteo_live = True
+        except Exception:
+            open_meteo_live = False
+
+    is_live = USE_LIVE_APIS and (osrm_live or open_meteo_live)
+    data_mode = "Live API Connected" if is_live else "Fallback Snapshot Mode"
+
+    return {
+        "is_live": is_live,
+        "data_mode": data_mode,
+        "providers": {
+            "routing": "OSRM Live (router.project-osrm.org)" if osrm_live else "OSRM Snapshot (travel_*.json)",
+            "weather": "Open-Meteo Live (api.open-meteo.com)" if open_meteo_live else "Snapshot Scenario Weather",
+            "venues": "Google Places API" if google_places_configured else "OpenStreetMap Nominatim + Curated Snapshot"
+        }
+    }
 
 
 # --- Schemas ---
@@ -105,10 +157,13 @@ TAIPEI_6P_PRESET = {
 
 @app.get("/api/health")
 def health_check():
+    live_info = check_live_status()
     return {
         "status": "healthy",
         "service": "collaborative-travel-multi-agent",
         "use_live_apis": USE_LIVE_APIS,
+        "data_mode": live_info["data_mode"],
+        "providers": live_info["providers"],
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
     }
 
@@ -342,3 +397,9 @@ def plan_replan(req: ReplanRequest):
         "diff": diff_summary,
         "updated_plan": updated_plan
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("backend.api:app", host="0.0.0.0", port=port, reload=False)

@@ -39,9 +39,21 @@ class _Completions:
                 return _resp(json.dumps({"next": nxt, "instruction": "fix it", "reason": "fake"}))
             return _resp(json.dumps(_plan(d)))
         if messages[-1]["role"] == "user":
+            if "CONTINGENCY" in sys_prompt:
+                return _resp(None, [NS(id=f"c{next(_ids)}", function=NS(name="find_rain_contingency", arguments="{}"))])
             return _resp(None, [NS(id=f"c{next(_ids)}", function=NS(name="weather", arguments="{}"))])
+        plan_to_propose = _plan(d)
+        if "CONTINGENCY" in sys_prompt:
+            tool_content = messages[-1].get("content")
+            if tool_content:
+                try:
+                    parsed = json.loads(tool_content)
+                    if isinstance(parsed, dict) and "itinerary" in parsed:
+                        plan_to_propose = parsed
+                except Exception:
+                    pass
         return _resp(None, [NS(id=f"c{next(_ids)}", function=NS(name="propose_plan",
-                                                                 arguments=json.dumps(_plan(d))))])
+                                                                 arguments=json.dumps(plan_to_propose)))])
 
 
 class FakeOpenAI:

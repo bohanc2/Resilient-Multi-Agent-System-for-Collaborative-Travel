@@ -13,8 +13,8 @@ import urllib.request
 TRAFFIC_FACTOR, PICKUP_MIN = 1.3, 5
 
 
-def _get(url: str) -> dict:
-    with urllib.request.urlopen(url, timeout=30) as r:
+def _get(url: str, timeout: float = 3.0) -> dict:
+    with urllib.request.urlopen(url, timeout=timeout) as r:
         return json.load(r)
 
 

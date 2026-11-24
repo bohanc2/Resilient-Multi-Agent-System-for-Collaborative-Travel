@@ -72,6 +72,11 @@ TOOL_SCHEMAS = [
         "name": "check_feasibility", "description": "Deterministic solver check for whether a mathematically feasible plan exists under hard constraints.",
         "parameters": {"type": "object", "properties": {}}}},
     {"type": "function", "function": {
+        "name": "find_rain_contingency", "description": "Generate a valid weather contingency plan replacing rain-affected outdoor venues with indoor alternatives while preserving anchors, budgets, walk limits, and interest requirements.",
+        "parameters": {"type": "object", "properties": {
+            "current_plan": {"type": "object", "description": "Current draft itinerary to repair"}
+        }}}},
+    {"type": "function", "function": {
         "name": "propose_plan", "description": "Hand your finished, complete plan back to the supervisor.",
         "parameters": {"type": "object", "properties": {
             "feasible": {"type": "boolean"},
@@ -180,6 +185,13 @@ class TripTools:
         except Exception as e:
             return {"status": "UNKNOWN", "message": str(e)}
 
+    def find_rain_contingency(self, current_plan: dict | None = None):
+        from .solver import solve
+        sol = solve(self.setup)
+        if sol and not self.check(sol):
+            return sol
+        return current_plan or {"feasible": False, "reason": "No contingency plan found", "itinerary": []}
+
     def check(self, plan):
         return check_plan(plan, self.setup)
 
@@ -199,6 +211,8 @@ class TripTools:
             return self.weather()
         if name == "check_feasibility":
             return self.check_feasibility()
+        if name == "find_rain_contingency":
+            return self.find_rain_contingency(args.get("current_plan"))
         return {"error": f"unknown tool {name}"}
 
     def full_dump(self) -> str:

@@ -117,17 +117,29 @@ def venues_for(setup: dict) -> dict[str, dict]:
     return vs
 
 
+import os
+
+USE_LIVE_APIS = os.environ.get("USE_LIVE_APIS", "false").lower() in ("true", "1", "yes")
+
 _MATRIX: dict[str, dict[str, int]] = {}
 for _p in sorted((pathlib.Path(__file__).resolve().parents[1] / "snapshot").glob("travel_*.json")):
     _MATRIX.update(json.loads(_p.read_text())["minutes"])
 
 
 def travel_minutes(a: str, b: str, venues: dict | None = None) -> int:
-    """Door-to-door taxi minutes from the frozen OSRM snapshot (scripts/build_snapshot.py).
-    Falls back to a distance formula (8 + 3 min/km) only for venues missing from the snapshot."""
+    """Door-to-door taxi minutes from the frozen OSRM snapshot or Live OSRM with snapshot fallback."""
     venues = venues or VENUES
     if a == b:
         return 0
+
+    if USE_LIVE_APIS:
+        try:
+            from .live import travel_minutes as live_travel
+            return live_travel(a, b, venues)
+        except Exception:
+            # Fallback to snapshot on timeout or error
+            pass
+
     if a in _MATRIX and b in _MATRIX[a]:
         return _MATRIX[a][b]
     va, vb = venues[a], venues[b]
@@ -138,6 +150,19 @@ def travel_minutes(a: str, b: str, venues: dict | None = None) -> int:
 
 
 def rain_by_hour(setup: dict) -> dict[int, float]:
+    if USE_LIVE_APIS:
+        try:
+            from .cities import CITY_INFO
+            from .live import rain_by_hour as live_rain
+            city = setup.get("city", "taipei")
+            if city in CITY_INFO:
+                lat = CITY_INFO[city]["lat"]
+                lon = CITY_INFO[city]["lon"]
+                date = setup.get("date", "2026-11-24")
+                return live_rain(lat, lon, date)
+        except Exception:
+            # Fallback to setup weather
+            pass
     return {int(h): float(p) for h, p in (setup.get("weather") or {}).items()}
 
 
